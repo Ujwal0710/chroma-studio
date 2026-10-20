@@ -149,5 +149,9 @@ __all__ = [
     "swap_palette_color",
     "estimate_paint_quantity",
     "generate_semantic_surface_masks",
-    "recolour_semantic_surface"
+    "recolour_semantic_surface",
+    "request_ai_enhanced_preview",
+    "get_image_editing_status",
+    "mask_api_key"
 ]
+

@@ -135,17 +135,25 @@ def test_image_edit_status_detection_and_key_masking():
     assert "Active" in status_unconf["mode1_status"]
     assert "Unavailable" in status_unconf["mode2_status"]
     
-    # 2. Configured scenario
+    # 2. Configured scenario (unverified live connectivity)
     raw_secret = "sk-proj-testSecretKeyValue987654321"
-    status_conf = get_image_editing_status(override_api_key=raw_secret)
+    status_conf = get_image_editing_status(override_api_key=raw_secret, verified_connectivity=False)
     assert status_conf["is_configured"] is True
+    assert status_conf["configuration_valid"] is True
+    assert status_conf["connectivity_verified"] is False
     assert status_conf["masked_key"] is not None
     # Crucial security check: raw secret must NEVER be exposed
     assert raw_secret not in status_conf["masked_key"]
     assert raw_secret not in status_conf["message"]
     assert status_conf["masked_key"].startswith("sk-p")
     assert status_conf["masked_key"].endswith("4321")
-    assert "Ready" in status_conf["mode2_status"]
+    assert "Configured" in status_conf["mode2_status"]
+    
+    # 3. Verified live connectivity scenario
+    status_verified = get_image_editing_status(override_api_key=raw_secret, verified_connectivity=True)
+    assert status_verified["connectivity_verified"] is True
+    assert "Connected & Verified" in status_verified["mode2_status"]
+
 
 
 def test_image_edit_provider_with_valid_credentials_and_mocked_api():

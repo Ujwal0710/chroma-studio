@@ -6,7 +6,8 @@ from models.schemas import PaletteConcept
 from services.image_editing_provider import (
     generate_ai_room_preview,
     get_image_editing_status,
-    mask_api_key
+    mask_api_key,
+    set_connectivity_verified
 )
 
 
@@ -27,3 +28,11 @@ def request_ai_enhanced_preview(
         interior_style=interior_style,
         override_api_key=override_api_key
     )
+
+
+__all__ = [
+    "request_ai_enhanced_preview",
+    "get_image_editing_status",
+    "mask_api_key",
+    "set_connectivity_verified"
+]

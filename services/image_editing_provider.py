@@ -13,6 +13,15 @@ from config.settings import (
 )
 from models.schemas import PaletteConcept
 
+# Module-level tracking of verified live connectivity
+_LAST_CONNECTIVITY_VERIFIED = False
+
+
+def set_connectivity_verified(verified: bool = True) -> None:
+    """Set whether connectivity to the generative provider has been confirmed."""
+    global _LAST_CONNECTIVITY_VERIFIED
+    _LAST_CONNECTIVITY_VERIFIED = verified
+
 
 def mask_api_key(api_key: str) -> str:
     """Safely mask an API key for UI/logs, never printing or exposing the raw secret."""
@@ -24,31 +33,62 @@ def mask_api_key(api_key: str) -> str:
     return f"{key[:4]}...{key[-4:]}"
 
 
-def get_image_editing_status(override_api_key: Optional[str] = None) -> Dict[str, Any]:
+def get_image_editing_status(
+    override_api_key: Optional[str] = None,
+    verified_connectivity: Optional[bool] = None
+) -> Dict[str, Any]:
     """
     Retrieve structured diagnostic status for image editing configuration.
     Validates detection of credentials without exposing raw secret values.
+    Distinguishes configured credentials from verified live connectivity.
     """
     api_key = (override_api_key if override_api_key is not None else IMAGE_EDIT_API_KEY).strip()
     is_configured = bool(api_key)
     provider_name = IMAGE_EDIT_PROVIDER.lower()
     model_name = IMAGE_EDIT_MODEL or "dall-e-3"
 
+    # Check configuration validity
+    config_valid = False
+    validation_note = ""
     if is_configured:
-        mode2_status = f"Ready (Generative AI Render via {IMAGE_EDIT_PROVIDER.upper()} {model_name})"
-        message = (
-            f"AI Generative Preview is configured and ready via {IMAGE_EDIT_PROVIDER.upper()} "
-            f"({model_name}). Key detected: [{mask_api_key(api_key)}]."
-        )
-    else:
+        if provider_name == "openai":
+            if not api_key.startswith("sk-") or len(api_key) < 15:
+                validation_note = "Key detected but does not match standard OpenAI format (expected 'sk-...')."
+                config_valid = False
+            else:
+                config_valid = True
+        else:
+            validation_note = f"Unsupported provider '{provider_name}'."
+            config_valid = False
+
+    is_verified = _LAST_CONNECTIVITY_VERIFIED if verified_connectivity is None else verified_connectivity
+
+    if not is_configured:
         mode2_status = "Unavailable (Requires IMAGE_EDIT_API_KEY or OPENAI_API_KEY in .env)"
         message = (
             "AI Image Editing API key not detected in .env. "
             "Mode 1 local wall recolouring is active with 100% full luminance preservation."
         )
+    elif not config_valid:
+        mode2_status = f"Configuration Warning ({validation_note})"
+        message = f"Mode 2 has credentials supplied, but configuration validation warning: {validation_note}"
+    elif is_verified:
+        mode2_status = f"Connected & Verified ({IMAGE_EDIT_PROVIDER.upper()} {model_name})"
+        message = (
+            f"AI Generative Preview is verified and active via {IMAGE_EDIT_PROVIDER.upper()} "
+            f"({model_name}). Key: [{mask_api_key(api_key)}]."
+        )
+    else:
+        mode2_status = f"Configured (Pending Verification with {IMAGE_EDIT_PROVIDER.upper()} {model_name})"
+        message = (
+            f"AI Generative Preview is configured for {IMAGE_EDIT_PROVIDER.upper()} ({model_name}) "
+            f"with key [{mask_api_key(api_key)}]. Live connectivity will be verified upon render request."
+        )
 
     return {
         "is_configured": is_configured,
+        "configuration_valid": config_valid,
+        "connectivity_verified": is_verified,
         "provider": IMAGE_EDIT_PROVIDER,
         "model": model_name,
         "endpoint": IMAGE_EDIT_API_ENDPOINT,
@@ -92,6 +132,7 @@ def generate_ai_room_preview(
     prompt = build_room_recolour_prompt(palette, room_type, interior_style)
 
     if not api_key:
+        set_connectivity_verified(False)
         return None, {
             "success": False,
             "status": "not_configured",
@@ -110,7 +151,6 @@ def generate_ai_room_preview(
             }
 
             model_name = IMAGE_EDIT_MODEL or "dall-e-3"
-            # OpenAI DALL-E 3 supports 1024x1024, DALL-E 2 supports 1024x1024, 512x512, 256x256
             payload = {
                 "model": model_name,
                 "prompt": prompt,
@@ -134,12 +174,14 @@ def generate_ai_room_preview(
                 img_resp.raise_for_status()
                 gen_img = Image.open(io.BytesIO(img_resp.content)).convert("RGB")
             else:
+                set_connectivity_verified(False)
                 return None, {
                     "success": False,
                     "status": "error",
                     "message": "AI provider response did not contain image data."
                 }
 
+            set_connectivity_verified(True)
             return gen_img, {
                 "success": True,
                 "status": "generated",
@@ -149,6 +191,7 @@ def generate_ai_room_preview(
             }
 
         else:
+            set_connectivity_verified(False)
             return None, {
                 "success": False,
                 "status": "unsupported_provider",
@@ -156,6 +199,7 @@ def generate_ai_room_preview(
             }
 
     except Exception as e:
+        set_connectivity_verified(False)
         return None, {
             "success": False,
             "status": "error",

@@ -64,10 +64,17 @@ from modules.room_visualization import (
     create_split_slider_comparison,
     create_mask_overlay_preview
 )
-from modules.ai_preview import (
-    request_ai_enhanced_preview,
-    get_image_editing_status
-)
+try:
+    from modules.ai_preview import (
+        request_ai_enhanced_preview,
+        get_image_editing_status
+    )
+except ImportError:
+    from services.image_editing_provider import (
+        generate_ai_room_preview as request_ai_enhanced_preview,
+        get_image_editing_status
+    )
+
 
 from modules.storage import (
     init_db,
