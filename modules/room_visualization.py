@@ -32,6 +32,14 @@ LUMINANCE_STRATEGIES = {
     "architectural_glaze": "Direct Glaze / Tint (Subtle translucent finish)"
 }
 
+__all__ = [
+    "LUMINANCE_STRATEGIES",
+    "apply_luminance_preserving_recolour",
+    "create_side_by_side_comparison",
+    "create_split_slider_comparison",
+    "create_mask_overlay_preview"
+]
+
 
 def apply_luminance_preserving_recolour(
     original_img: Image.Image,

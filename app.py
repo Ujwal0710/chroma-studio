@@ -58,13 +58,33 @@ from modules.colour_extraction import extract_dominant_colors
 from modules.room_analysis import analyze_room_photograph
 from modules.palette_engine import generate_recommended_palettes
 from modules.wall_segmentation import generate_wall_mask
-from modules.room_visualization import (
-    apply_luminance_preserving_recolour,
-    create_side_by_side_comparison,
-    create_split_slider_comparison,
-    create_mask_overlay_preview,
-    LUMINANCE_STRATEGIES
-)
+try:
+    from modules.room_visualization import (
+        apply_luminance_preserving_recolour,
+        create_side_by_side_comparison,
+        create_split_slider_comparison,
+        create_mask_overlay_preview,
+        LUMINANCE_STRATEGIES
+    )
+except ImportError:
+    import importlib
+    import modules.room_visualization
+    importlib.reload(modules.room_visualization)
+    from modules.room_visualization import (
+        apply_luminance_preserving_recolour,
+        create_side_by_side_comparison,
+        create_split_slider_comparison,
+        create_mask_overlay_preview
+    )
+    LUMINANCE_STRATEGIES = getattr(
+        modules.room_visualization,
+        "LUMINANCE_STRATEGIES",
+        {
+            "cielab_perceptual": "Perceptual CIELAB (Accurate tone values + natural texture)",
+            "adaptive_luminance": "Adaptive Luminance Ratio (High-contrast shadow retention)",
+            "architectural_glaze": "Direct Glaze / Tint (Subtle translucent finish)"
+        }
+    )
 from modules.quality_control import validate_recolour_quality, QualityControlReport
 try:
     from modules.ai_preview import (

@@ -7,7 +7,8 @@ from modules.room_visualization import (
     apply_luminance_preserving_recolour,
     create_side_by_side_comparison,
     create_split_slider_comparison,
-    create_mask_overlay_preview
+    create_mask_overlay_preview,
+    LUMINANCE_STRATEGIES
 )
 
 
@@ -110,3 +111,24 @@ def test_side_by_side_and_split_slider_generation():
     mask[:40, :] = 255
     overlay = create_mask_overlay_preview(img1, mask)
     assert overlay.size == (w, h)
+
+
+def test_luminance_strategies_definition_and_switching():
+    """Verify LUMINANCE_STRATEGIES is exported, contains valid labels, and modifies recolouring."""
+    assert isinstance(LUMINANCE_STRATEGIES, dict)
+    expected_keys = {"cielab_perceptual", "adaptive_luminance", "architectural_glaze"}
+    assert set(LUMINANCE_STRATEGIES.keys()) == expected_keys
+
+    # Verify that each strategy modifies the image in a distinct manner
+    img = Image.new("RGB", (80, 80), (220, 210, 200))
+    mask = np.full((80, 80), 255, dtype=np.uint8)
+    target = (180, 90, 60)
+
+    res_cielab = np.array(apply_luminance_preserving_recolour(img, mask, target, strategy="cielab_perceptual"))
+    res_adapt = np.array(apply_luminance_preserving_recolour(img, mask, target, strategy="adaptive_luminance"))
+    res_glaze = np.array(apply_luminance_preserving_recolour(img, mask, target, strategy="architectural_glaze"))
+
+    # All three must produce distinct pixel arrays
+    assert not np.array_equal(res_cielab, res_adapt)
+    assert not np.array_equal(res_cielab, res_glaze)
+    assert not np.array_equal(res_adapt, res_glaze)
