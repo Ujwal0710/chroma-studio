@@ -192,8 +192,8 @@ def score_palette_heuristic(
 
 def generate_recommended_palettes(
     extracted: ExtractedColorAnalysis,
-    room_analysis: RoomAnalysisResult,
-    preferences: PreferenceSettings
+    room_analysis: Optional[RoomAnalysisResult] = None,
+    preferences: Optional[PreferenceSettings] = None
 ) -> List[PaletteConcept]:
     """
     Deterministic generation of 4 distinct interior design palettes:
@@ -202,8 +202,19 @@ def generate_recommended_palettes(
     3. Modern Neutral
     4. Bold Accent / Contemporary Contrast
     """
+    if preferences is None:
+        from modules.preferences import create_default_preferences
+        r_type = room_analysis.detected_room_type if room_analysis else "Automatic Detection"
+        r_style = room_analysis.detected_style if room_analysis else "Automatic Detection"
+        preferences = create_default_preferences(room_type=r_type, interior_style=r_style)
+
+    if room_analysis is None:
+        from services.vision_provider import generate_local_rule_based_analysis
+        room_analysis = generate_local_rule_based_analysis(extracted)
+
     palettes: List[PaletteConcept] = []
     dom_colors = extracted.dominant_colors
+
 
     # Select seed tones from extracted image colors
     # Warmest dominant

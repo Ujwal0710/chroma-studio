@@ -219,6 +219,22 @@ def cached_wall_mask(image_bytes: bytes, sensitivity: float, upper_bias: float, 
     return buf.getvalue(), meta
 
 
+@st.cache_data(show_spinner=False)
+def cached_room_analysis(image_bytes: bytes, room_type: str = "Automatic Detection", style: str = "Automatic Detection") -> Dict[str, Any]:
+    """Cached room analysis to prevent duplicate inference across views."""
+    _, proc_pil, _ = validate_image_bytes(image_bytes)
+    extracted_dict = cached_dominant_colors(image_bytes)
+    extracted = ExtractedColorAnalysis(**extracted_dict)
+    analysis = analyze_room_photograph(
+        proc_pil,
+        extracted_analysis=extracted,
+        selected_room_type=room_type,
+        selected_style=style
+    )
+    return analysis.model_dump()
+
+
+
 # ----------------------------------------------------
 # Main Application Header
 # ----------------------------------------------------
@@ -498,12 +514,13 @@ elif st.session_state.current_view == "🎨 Studio & Analysis":
         with st.spinner("Extracting room tones and evaluating spatial light..."):
             extracted_dict = cached_dominant_colors(st.session_state.current_image_bytes)
             extracted = ExtractedColorAnalysis(**extracted_dict)
-            room_analysis = analyze_room_photograph(
-                proc_pil,
-                extracted_analysis=extracted,
-                selected_room_type=current_preferences.room_type,
-                selected_style=current_preferences.interior_style
+            analysis_dict = cached_room_analysis(
+                st.session_state.current_image_bytes,
+                room_type=current_preferences.room_type,
+                style=current_preferences.interior_style
             )
+            room_analysis = RoomAnalysisResult(**analysis_dict)
+
 
         # Generate Palettes
         palettes = generate_recommended_palettes(
@@ -614,7 +631,8 @@ elif st.session_state.current_view == "🖼️ Visualization Studio":
         original_pil, proc_pil, metadata = validate_image_bytes(st.session_state.current_image_bytes)
         extracted_dict = cached_dominant_colors(st.session_state.current_image_bytes)
         extracted = ExtractedColorAnalysis(**extracted_dict)
-        room_analysis = analyze_room_photograph(proc_pil, extracted_analysis=extracted)
+        analysis_dict = cached_room_analysis(st.session_state.current_image_bytes)
+        room_analysis = RoomAnalysisResult(**analysis_dict)
         palettes = generate_recommended_palettes(extracted=extracted, room_analysis=room_analysis)
         active_palette = next((p for p in palettes if p.id == st.session_state.selected_palette_id), palettes[0])
 
@@ -744,9 +762,11 @@ elif st.session_state.current_view == "🧪 Experimental AI Lab":
         if st.session_state.current_image_bytes is None:
             st.info("Please upload a room photograph in the sidebar first.")
         else:
+            original_pil, proc_pil, _ = validate_image_bytes(st.session_state.current_image_bytes)
             extracted_dict = cached_dominant_colors(st.session_state.current_image_bytes)
             extracted = ExtractedColorAnalysis(**extracted_dict)
-            room_analysis = analyze_room_photograph(Image.open(io.BytesIO(st.session_state.current_image_bytes)).convert("RGB"))
+            analysis_dict = cached_room_analysis(st.session_state.current_image_bytes)
+            room_analysis = RoomAnalysisResult(**analysis_dict)
             palettes = generate_recommended_palettes(extracted=extracted, room_analysis=room_analysis)
             base_p = palettes[0]
 

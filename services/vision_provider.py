@@ -242,7 +242,7 @@ def generate_local_rule_based_analysis(
 
 def perform_room_analysis(
     img: Image.Image,
-    extracted_analysis: ExtractedColorAnalysis,
+    extracted_analysis: Optional[ExtractedColorAnalysis] = None,
     selected_room_type: str = "Automatic Detection",
     selected_style: str = "Automatic Detection",
     override_api_key: Optional[str] = None
@@ -250,7 +250,12 @@ def perform_room_analysis(
     """
     Perform semantic room analysis.
     Uses Vision LLM if configured; otherwise seamlessly falls back to local rule-based analysis.
+    If extracted_analysis is omitted, automatically extracts dominant colors from img.
     """
+    if extracted_analysis is None:
+        from modules.colour_extraction import extract_dominant_colors
+        extracted_analysis = extract_dominant_colors(img)
+
     api_key = (override_api_key or VISION_API_KEY).strip()
 
     if not api_key:

@@ -102,3 +102,16 @@ def test_application_can_start_without_paid_ai_services():
     # Initialize DB in-memory
     storage.init_db(":memory:")
     assert True
+
+
+def test_analyze_room_photograph_supports_omitted_extracted_analysis():
+    """Verify analyze_room_photograph works gracefully when extracted_analysis is omitted or None."""
+    from modules.room_analysis import analyze_room_photograph
+    img = Image.new("RGB", (80, 80), (210, 190, 170))
+    # Call with ONLY img
+    result = analyze_room_photograph(img)
+    assert result is not None
+    assert result.detected_room_type is not None
+    assert result.detected_style is not None
+    assert "Local" in result.provider_name
+
