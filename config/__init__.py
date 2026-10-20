@@ -1,6 +1,7 @@
 """Configuration package for CHROMA STUDIO AI."""
 from config.settings import (
     BASE_DIR,
+    ENV_PATH,
     DATA_DIR,
     APP_NAME,
     APP_TAGLINE,
@@ -17,6 +18,8 @@ from config.settings import (
     IMAGE_EDIT_API_KEY,
     IMAGE_EDIT_MODEL,
     IMAGE_EDIT_PROVIDER,
+    IMAGE_EDIT_API_ENDPOINT,
+
     RAZORPAY_KEY_ID,
     RAZORPAY_KEY_SECRET,
     RAZORPAY_WEBHOOK_SECRET,
@@ -35,6 +38,7 @@ from config.settings import (
 
 __all__ = [
     "BASE_DIR",
+    "ENV_PATH",
     "DATA_DIR",
     "APP_NAME",
     "APP_TAGLINE",
@@ -51,6 +55,8 @@ __all__ = [
     "IMAGE_EDIT_API_KEY",
     "IMAGE_EDIT_MODEL",
     "IMAGE_EDIT_PROVIDER",
+    "IMAGE_EDIT_API_ENDPOINT",
+
     "RAZORPAY_KEY_ID",
     "RAZORPAY_KEY_SECRET",
     "RAZORPAY_WEBHOOK_SECRET",

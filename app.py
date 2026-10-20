@@ -64,7 +64,11 @@ from modules.room_visualization import (
     create_split_slider_comparison,
     create_mask_overlay_preview
 )
-from modules.ai_preview import request_ai_enhanced_preview
+from modules.ai_preview import (
+    request_ai_enhanced_preview,
+    get_image_editing_status
+)
+
 from modules.storage import (
     init_db,
     save_palette,
@@ -645,7 +649,26 @@ elif st.session_state.current_view == "🖼️ Visualization Studio":
         ])
 
         with vis_tabs[0]:
+            st.markdown(
+                """
+                <div class="custom-card" style="margin-bottom: 14px; padding: 12px 16px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-weight: 700; color: var(--accent-primary); font-size: 0.92rem;">
+                            🟢 Mode 1 Active: Local Wall Recolouring
+                        </span>
+                        <span class="score-badge" style="background-color: #E8EFE9; color: #3A6946; font-size: 0.78rem;">
+                            100% Offline &amp; Unmetered
+                        </span>
+                    </div>
+                    <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 4px 0 0 0;">
+                        Preserves room shadows, ambient daylight falloff, and physical textures using luminance scaling. Runs entirely locally without API keys.
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
             c1, c2, c3, c4 = st.columns(4)
+
             with c1:
                 st.session_state.recolour_intensity = st.slider("Paint Intensity", 0.2, 1.0, float(st.session_state.recolour_intensity), 0.05)
             with c2:
@@ -688,17 +711,54 @@ elif st.session_state.current_view == "🖼️ Visualization Studio":
             st.download_button("⬇️ Download High-Res Preview (PNG)", rec_buf.getvalue(), "recoloured_room.png", "image/png")
 
         with vis_tabs[1]:
-            st.markdown("#### AI-Enhanced Generative Preview")
-            has_edit_key = bool(IMAGE_EDIT_API_KEY.strip())
-            if not has_edit_key:
-                st.info("ℹ️ AI Image Editing API key not detected in `.env`. Mode 1 local wall recolouring is active with 100% full luminance preservation.")
+            st.markdown("#### Mode 2: AI-Enhanced Generative Preview")
+            edit_status = get_image_editing_status()
+            
+            if edit_status["is_configured"]:
+                st.markdown(
+                    f"""
+                    <div class="custom-card" style="margin-bottom: 14px; padding: 14px 18px; border-left: 4px solid var(--accent-primary);">
+                        <div style="font-weight: 700; color: var(--accent-primary); font-size: 0.92rem; margin-bottom: 4px;">
+                            🟢 Mode 2 Configured: {edit_status['provider'].upper()} ({edit_status['model']})
+                        </div>
+                        <div style="font-size: 0.84rem; color: var(--text-secondary);">
+                            API Key Detected: <code style="color: var(--accent-secondary);">{edit_status['masked_key']}</code> • 
+                            Endpoint: <code>{edit_status['endpoint']}</code>
+                        </div>
+                        <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 6px 0 0 0;">
+                            Generative diffusion models reconstruct the space with architectural paint textures while maintaining floor and furniture layouts.
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    """
+                    <div class="custom-card" style="margin-bottom: 14px; padding: 14px 18px; border-left: 4px solid var(--accent-secondary);">
+                        <div style="font-weight: 700; color: var(--accent-primary); font-size: 0.92rem; margin-bottom: 4px;">
+                            ℹ️ Mode 2 Unavailable: API Key Not Configured
+                        </div>
+                        <p style="font-size: 0.84rem; color: var(--text-secondary); margin: 0 0 6px 0;">
+                            AI Image Editing API key not detected in <code>.env</code>. Mode 1 local wall recolouring is active with 100% full luminance preservation.
+                        </p>
+                        <p style="font-size: 0.80rem; color: var(--text-secondary); margin: 0;">
+                            To enable generative cloud previews, configure <code>IMAGE_EDIT_API_KEY</code> (or <code>OPENAI_API_KEY</code>) in your project <code>.env</code>.
+                        </p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
             
             # Check entitlement for AI preview
             can_ai, ai_msg, _ = check_entitlement(active_user_id, "ai_preview")
             if not can_ai:
                 st.warning(f"⚠️ Plan Limit: {ai_msg}")
             
-            if st.button("✨ Request AI-Enhanced Room Render", disabled=(not has_edit_key or not can_ai)):
+            button_disabled = (not edit_status["is_configured"]) or (not can_ai)
+            btn_label = "✨ Request AI-Enhanced Room Render" if edit_status["is_configured"] else "🔒 Mode 2 Disabled (Configure API Key in .env)"
+            
+            if st.button(btn_label, disabled=button_disabled):
                 with st.spinner("Generating architectural render..."):
                     gen_img, gen_meta = request_ai_enhanced_preview(
                         original_pil,
@@ -708,6 +768,7 @@ elif st.session_state.current_view == "🖼️ Visualization Studio":
                     )
                     record_usage_metric(active_user_id, "ai_preview")
                     st.session_state.ai_preview_result = (gen_img, gen_meta)
+
 
             if st.session_state.ai_preview_result:
                 g_img, g_meta = st.session_state.ai_preview_result

@@ -3,12 +3,15 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_PATH = BASE_DIR / ".env"
+
+# Explicitly load environment variables from project root .env
+load_dotenv(dotenv_path=ENV_PATH)
+
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 
 # Product Branding (Configurable)
 APP_NAME = os.environ.get("APP_NAME", "CHROMA STUDIO AI")
@@ -29,14 +32,17 @@ ALLOWED_MIME_TYPES = {
 PROCESSING_MAX_DIMENSION = 1200  # Resize for analysis & segmentation to keep memory/CPU fast
 
 # External API Configuration
-VISION_API_KEY = os.environ.get("VISION_API_KEY", "")
+VISION_API_KEY = (os.environ.get("VISION_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")).strip()
 VISION_MODEL = os.environ.get("VISION_MODEL", "gemini-1.5-flash")
 VISION_PROVIDER = os.environ.get("VISION_PROVIDER", "gemini")  # 'gemini' or 'openai_compatible'
 VISION_API_ENDPOINT = os.environ.get("VISION_API_ENDPOINT", "")
 
-IMAGE_EDIT_API_KEY = os.environ.get("IMAGE_EDIT_API_KEY", "")
+# AI Image Editing / Generative Preview Configuration
+IMAGE_EDIT_API_KEY = (os.environ.get("IMAGE_EDIT_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")).strip()
 IMAGE_EDIT_MODEL = os.environ.get("IMAGE_EDIT_MODEL", "dall-e-3")
 IMAGE_EDIT_PROVIDER = os.environ.get("IMAGE_EDIT_PROVIDER", "openai")
+IMAGE_EDIT_API_ENDPOINT = os.environ.get("IMAGE_EDIT_API_ENDPOINT", "https://api.openai.com/v1/images/generations")
+
 
 # Razorpay / Payment Configuration
 RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "rzp_test_samplekeyid123")

@@ -78,6 +78,12 @@ from modules.material_palettes import evaluate_material_compatibility, ALL_MATER
 from modules.colour_swap import swap_palette_color
 from modules.paint_estimator import estimate_paint_quantity
 from modules.semantic_wall import generate_semantic_surface_masks, recolour_semantic_surface
+from modules.ai_preview import (
+    request_ai_enhanced_preview,
+    get_image_editing_status,
+    mask_api_key
+)
+
 
 __all__ = [
     "validate_image_bytes",
