@@ -12,19 +12,36 @@ import numpy as np
 import streamlit as st
 
 # Application configuration & schemas
-from config.settings import (
-    APP_NAME,
-    APP_TAGLINE,
-    DESIGN_TOKENS,
-    ROOM_TYPES,
-    INTERIOR_STYLES,
-    VISION_API_KEY,
-    IMAGE_EDIT_API_KEY,
-    VISION_MODEL,
-    IMAGE_EDIT_MODEL,
-    SUBSCRIPTION_PLANS,
-    RAZORPAY_KEY_ID
-)
+try:
+    from config.settings import (
+        APP_NAME,
+        APP_TAGLINE,
+        DESIGN_TOKENS,
+        ROOM_TYPES,
+        INTERIOR_STYLES,
+        VISION_API_KEY,
+        IMAGE_EDIT_API_KEY,
+        VISION_MODEL,
+        IMAGE_EDIT_MODEL,
+        SUBSCRIPTION_PLANS,
+        RAZORPAY_KEY_ID,
+        RAZORPAY_WEBHOOK_SECRET
+    )
+except ImportError:
+    import config.settings as _settings
+    APP_NAME = getattr(_settings, "APP_NAME", "CHROMA STUDIO AI")
+    APP_TAGLINE = getattr(_settings, "APP_TAGLINE", "Intelligent Architectural Colour & Interior Design Workspace")
+    DESIGN_TOKENS = getattr(_settings, "DESIGN_TOKENS", {})
+    ROOM_TYPES = getattr(_settings, "ROOM_TYPES", [])
+    INTERIOR_STYLES = getattr(_settings, "INTERIOR_STYLES", [])
+    VISION_API_KEY = getattr(_settings, "VISION_API_KEY", "")
+    IMAGE_EDIT_API_KEY = getattr(_settings, "IMAGE_EDIT_API_KEY", "")
+    VISION_MODEL = getattr(_settings, "VISION_MODEL", "gemini-1.5-flash")
+    IMAGE_EDIT_MODEL = getattr(_settings, "IMAGE_EDIT_MODEL", "dall-e-3")
+    SUBSCRIPTION_PLANS = getattr(_settings, "SUBSCRIPTION_PLANS", {})
+    RAZORPAY_KEY_ID = getattr(_settings, "RAZORPAY_KEY_ID", "rzp_test_samplekeyid123")
+    RAZORPAY_WEBHOOK_SECRET = getattr(_settings, "RAZORPAY_WEBHOOK_SECRET", "rzp_webhook_secret_test")
+
 from models.schemas import (
     PaletteConcept,
     RoomAnalysisResult,
@@ -1115,7 +1132,6 @@ elif st.session_state.current_view == "💳 Subscription & Billing":
         }
         body_bytes = json.dumps(test_payload).encode("utf-8")
         import hmac, hashlib
-        from config.settings import RAZORPAY_WEBHOOK_SECRET
         valid_sig = hmac.new(RAZORPAY_WEBHOOK_SECRET.encode("utf-8"), body_bytes, hashlib.sha256).hexdigest()
 
         if st.button("Trigger Test Webhook Execution"):

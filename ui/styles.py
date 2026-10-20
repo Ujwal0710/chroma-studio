@@ -1,6 +1,14 @@
 """CSS styles and Design System tokens for CHROMA STUDIO AI."""
 from typing import Dict, Any
-from config.settings import LIGHT_THEME_TOKENS, DARK_THEME_TOKENS, APP_NAME, APP_TAGLINE
+try:
+    from config.settings import LIGHT_THEME_TOKENS, DARK_THEME_TOKENS, APP_NAME, APP_TAGLINE
+except ImportError:
+    import config.settings as _settings
+    LIGHT_THEME_TOKENS = getattr(_settings, "LIGHT_THEME_TOKENS", {})
+    DARK_THEME_TOKENS = getattr(_settings, "DARK_THEME_TOKENS", {})
+    APP_NAME = getattr(_settings, "APP_NAME", "CHROMA STUDIO AI")
+    APP_TAGLINE = getattr(_settings, "APP_TAGLINE", "Intelligent Architectural Colour & Interior Design Workspace")
+
 
 
 def get_theme_css(theme: str = "light") -> str:

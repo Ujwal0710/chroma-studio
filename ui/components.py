@@ -3,7 +3,14 @@ import streamlit as st
 from typing import List, Dict, Any, Optional
 from PIL import Image
 
-from config.settings import APP_NAME, APP_TAGLINE, SUBSCRIPTION_PLANS
+try:
+    from config.settings import APP_NAME, APP_TAGLINE, SUBSCRIPTION_PLANS
+except ImportError:
+    import config.settings as _settings
+    APP_NAME = getattr(_settings, "APP_NAME", "CHROMA STUDIO AI")
+    APP_TAGLINE = getattr(_settings, "APP_TAGLINE", "Intelligent Architectural Colour & Interior Design Workspace")
+    SUBSCRIPTION_PLANS = getattr(_settings, "SUBSCRIPTION_PLANS", {})
+
 from models.schemas import PaletteConcept, RoomAnalysisResult, ExtractedColorAnalysis, ColorSwatch
 
 
