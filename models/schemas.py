@@ -97,3 +97,106 @@ class SavedPaletteRecord(BaseModel):
     preferences_data: Dict[str, Any]
     notes: Optional[str] = ""
     preview_image_path: Optional[str] = None
+    user_id: Optional[str] = "default_user"
+
+
+class UserProfile(BaseModel):
+    user_id: str
+    display_name: str = "Architectural Designer"
+    avatar_url: str = ""
+    preferred_language: str = "English"
+    theme: str = "light"  # 'light', 'dark', 'system'
+    default_room_type: str = "Living Room"
+    default_interior_style: str = "Modern"
+    preferred_temp: str = "Balanced / Neutral"
+    liked_colors: List[str] = Field(default_factory=lambda: ["Warm Linen", "Desert Sand", "Muted Sage"])
+    disliked_colors: List[str] = Field(default_factory=list)
+    preferred_atmospheres: List[str] = Field(default_factory=lambda: ["Calm & Relaxing", "Modern & Sophisticated"])
+    default_vis_mode: str = "Side-by-Side Comparison"
+
+
+class UserAccount(BaseModel):
+    id: str
+    email: str
+    full_name: str
+    role: str = "user"  # 'user', 'admin'
+    created_at: str
+    avatar_url: Optional[str] = ""
+    profile: Optional[UserProfile] = None
+
+
+class UserSubscription(BaseModel):
+    user_id: str
+    plan_id: str = "free"  # 'free', 'plus', 'pro'
+    status: str = "active"  # 'active', 'cancelled', 'past_due', 'expired'
+    billing_cycle: str = "monthly"  # 'monthly', 'annual'
+    current_period_start: str
+    current_period_end: str
+    razorpay_subscription_id: Optional[str] = None
+    razorpay_payment_id: Optional[str] = None
+
+
+class UsageRecord(BaseModel):
+    user_id: str
+    month_key: str  # 'YYYY-MM'
+    analyses_used: int = 0
+    ai_previews_used: int = 0
+    exports_count: int = 0
+
+
+class TimelineVersion(BaseModel):
+    id: str
+    user_id: str
+    project_id: str
+    version_num: int
+    label: str
+    timestamp: str
+    palette_data: Dict[str, Any]
+    notes: str = ""
+    thumbnail_data: Optional[str] = None  # Base64 thumbnail string
+
+
+class ChromaMemoryProfile(BaseModel):
+    user_id: str
+    favorite_colors: List[str] = Field(default_factory=list)
+    rejected_colors: List[str] = Field(default_factory=list)
+    preferred_styles: List[str] = Field(default_factory=list)
+    preferred_atmospheres: List[str] = Field(default_factory=list)
+    interactions_count: int = 0
+
+
+class ChromaDNA(BaseModel):
+    user_id: str
+    signature_name: str
+    dominant_family: str
+    contrast_level: str  # 'Subtle Low-Contrast', 'Balanced Architectural', 'Dramatic High-Contrast'
+    temperature_bias: str  # 'Warm Terracotta Leaning', 'Crisp Cool Leaning', 'True Neutral Greige'
+    material_affinity: List[str]
+    preferred_styles: List[str]
+    signature_swatches: List[ColorSwatch]
+
+
+class PaintEstimateInput(BaseModel):
+    room_length_meters: float = 5.0
+    room_width_meters: float = 4.0
+    wall_height_meters: float = 2.8
+    num_doors: int = 1
+    num_windows: int = 2
+    coats: int = 2
+    coverage_sqm_per_liter: float = 12.0  # Standard interior emulsion coverage
+    cost_per_liter_inr: Optional[float] = 450.0  # Optional user-supplied rate
+
+
+class PaintEstimateResult(BaseModel):
+    gross_wall_area_sqm: float
+    deductions_sqm: float
+    net_wall_area_sqm: float
+    total_coated_area_sqm: float
+    paint_liters_required: float
+    recommended_cans_breakdown: Dict[str, int]
+    estimated_cost_inr: Optional[float] = None
+    estimator_disclaimer: str = (
+        "Note: Rule-based architectural approximation. Real coverage varies by physical wall texture, "
+        "primer quality, porosity, and application method. Always check manufacturer specifications before purchasing."
+    )
+

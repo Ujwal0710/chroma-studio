@@ -109,8 +109,13 @@ def hsv_to_rgb(h: float, s: float, v: float) -> Tuple[int, int, int]:
     return max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b))
 
 
-def rgb_to_cielab(r: int, g: int, b: int) -> Tuple[float, float, float]:
-    """Convert sRGB [0..255] to CIE L*a*b* under D65 illuminant."""
+def rgb_to_cielab(r: Any, g: Optional[int] = None, b: Optional[int] = None) -> Tuple[float, float, float]:
+    """Convert sRGB [0..255] to CIE L*a*b* under D65 illuminant. Accepts (r, g, b) or single tuple/list."""
+    if g is None and b is None and isinstance(r, (tuple, list)):
+        r, g, b = int(r[0]), int(r[1]), int(r[2])
+    else:
+        r, g, b = int(r), int(g), int(b)
+
     # Convert sRGB to linear RGB
     def to_linear(v: float) -> float:
         v = v / 255.0
@@ -141,6 +146,13 @@ def rgb_to_cielab(r: int, g: int, b: int) -> Tuple[float, float, float]:
     b_star = 200.0 * (fy - fz)
 
     return round(l_star, 2), round(a_star, 2), round(b_star, 2)
+
+
+def calculate_cielab_delta_e(lab1: Tuple[float, float, float], lab2: Tuple[float, float, float]) -> float:
+    """Calculate Euclidean Delta-E distance between two CIE L*a*b* coordinates."""
+    import math
+    return math.sqrt((lab1[0] - lab2[0]) ** 2 + (lab1[1] - lab2[1]) ** 2 + (lab1[2] - lab2[2]) ** 2)
+
 
 
 def classify_color_characteristics(r: int, g: int, b: int) -> Dict[str, str]:

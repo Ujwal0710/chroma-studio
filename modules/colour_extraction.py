@@ -86,6 +86,19 @@ def match_color_name(r: int, g: int, b: int) -> str:
     return best_name
 
 
+def get_closest_interior_color_name(color_input: Any) -> str:
+    """Convenience helper to match color name from hex string or RGB tuple."""
+    if isinstance(color_input, str):
+        h = color_input.lstrip("#")
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    elif isinstance(color_input, (tuple, list)):
+        r, g, b = int(color_input[0]), int(color_input[1]), int(color_input[2])
+    else:
+        return "Interior Tone"
+    return match_color_name(r, g, b)
+
+
+
 def extract_dominant_colors(
     img: Image.Image,
     num_colors: int = 7,

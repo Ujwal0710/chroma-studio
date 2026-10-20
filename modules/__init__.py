@@ -1,4 +1,4 @@
-"""Modules package for AI Interior Colour Palette Suggester."""
+"""Modules package for CHROMA STUDIO AI."""
 from modules.image_validation import validate_image_bytes, ImageValidationError
 from modules.image_processing import (
     pil_to_numpy_rgb,
@@ -39,6 +39,45 @@ from modules.export_service import (
     generate_swatch_sheet_png,
     generate_text_report
 )
+from modules.auth import (
+    hash_password,
+    verify_password,
+    register_user,
+    authenticate_user,
+    initiate_password_reset,
+    complete_password_reset,
+    change_user_password
+)
+from modules.subscription_service import (
+    get_user_subscription,
+    update_user_subscription,
+    check_entitlement,
+    record_usage_metric,
+    get_user_usage,
+    verify_razorpay_payment_signature,
+    verify_razorpay_webhook_signature,
+    process_payment_webhook,
+    execute_test_sandbox_checkout
+)
+from modules.chroma_memory import (
+    get_chroma_memory,
+    record_favorite_palette,
+    record_rejected_palette,
+    clear_chroma_memory,
+    evaluate_chroma_memory_influence
+)
+from modules.chroma_dna import generate_chroma_dna
+from modules.design_timeline import (
+    save_timeline_version,
+    list_project_timeline,
+    get_timeline_version
+)
+from modules.harmony_explorer import explore_color_harmonies
+from modules.daylight_simulator import simulate_daylight_lighting
+from modules.material_palettes import evaluate_material_compatibility, ALL_MATERIALS
+from modules.colour_swap import swap_palette_color
+from modules.paint_estimator import estimate_paint_quantity
+from modules.semantic_wall import generate_semantic_surface_masks, recolour_semantic_surface
 
 __all__ = [
     "validate_image_bytes",
@@ -71,5 +110,38 @@ __all__ = [
     "export_palette_json",
     "export_palette_csv",
     "generate_swatch_sheet_png",
-    "generate_text_report"
+    "generate_text_report",
+    "hash_password",
+    "verify_password",
+    "register_user",
+    "authenticate_user",
+    "initiate_password_reset",
+    "complete_password_reset",
+    "change_user_password",
+    "get_user_subscription",
+    "update_user_subscription",
+    "check_entitlement",
+    "record_usage_metric",
+    "get_user_usage",
+    "verify_razorpay_payment_signature",
+    "verify_razorpay_webhook_signature",
+    "process_payment_webhook",
+    "execute_test_sandbox_checkout",
+    "get_chroma_memory",
+    "record_favorite_palette",
+    "record_rejected_palette",
+    "clear_chroma_memory",
+    "evaluate_chroma_memory_influence",
+    "generate_chroma_dna",
+    "save_timeline_version",
+    "list_project_timeline",
+    "get_timeline_version",
+    "explore_color_harmonies",
+    "simulate_daylight_lighting",
+    "evaluate_material_compatibility",
+    "ALL_MATERIALS",
+    "swap_palette_color",
+    "estimate_paint_quantity",
+    "generate_semantic_surface_masks",
+    "recolour_semantic_surface"
 ]

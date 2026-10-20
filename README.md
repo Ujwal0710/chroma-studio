@@ -1,195 +1,124 @@
-# AI Interior Colour Palette Suggester 🎨
+# CHROMA STUDIO AI 🎨
+### Futuristic Premium Edition — Intelligent Architectural Colour & Interior Design Workspace
 
-An architectural-grade, computer-vision and AI-powered interior colour recommendation system. The application analyzes uploaded photographs of physical rooms, extracts dominant tones using K-Means clustering and ITU-R BT.709 perceptual luminance, evaluates spatial and lighting conditions, generates four distinct colour harmony concepts using colour theory, and simulates new wall paint via luminance-preserving recolouring and generative AI models.
-
----
-
-## 🏛️ Key Capabilities
-
-- **Module A — Image Validation & Orientation:**
-  - Supports JPG, JPEG, PNG, and WEBP uploads up to 15MB.
-  - Automatically corrects EXIF camera orientation tags.
-  - Validates magic bytes, dimensions, and aspect ratio.
-  - Resizes images for efficient CV processing while preserving original display fidelity.
-
-- **Module B — Computer Vision & Colour Extraction:**
-  - Extracts representative dominant colours and spatial proportions using MiniBatch K-Means clustering.
-  - Filters out camera specular blowout (#FFFFFF) and sensor shadow noise (#000000).
-  - Evaluates perceptual luminance, saturation categories, and correlated colour temperature tendencies.
-  - Maps colours to an architectural interior design naming dictionary (e.g., *Desert Sand*, *Warm Linen*, *Muted Sage*, *Architectural Charcoal*).
-
-- **Module C — AI Room Analysis & Local Fallback:**
-  - Connects to Vision LLMs (Google Gemini 1.5 Flash via `google-genai` / `google-generativeai` or OpenAI-compatible vision models).
-  - Extracts structured observations: room type, design style, visible materials, wall/floor base descriptions, lighting qualities, and design challenges.
-  - **100% Functional Local Fallback:** When API credentials are absent or fail, the system falls back to a deterministic computer-vision inference engine without crashing.
-
-- **Module D & E — Colour Theory & Preference-Driven Recommendation Engine:**
-  - Generates 4 distinct concepts:
-    1. **Warm & Inviting** (Analogous / Monochromatic warm tones)
-    2. **Cool & Calming** (Monochromatic / Complementary cool tones)
-    3. **Modern Neutral** (Architectural Greige & Travertine with curated accent)
-    4. **Bold Accent / Contemporary Contrast** (Complementary / Triadic focal point)
-  - Enforces the **60-30-10** interior design rule: Primary Wall (60%), Secondary Wall / Trim (30%), Accent Details (10%).
-  - Provides interactive controls: Room Type, Design Style, Warm/Cool Temperature, Lightness (Airy vs Deep/Moody), Saturation, Desired Atmosphere, Accent Intensity, Preferred Colours, and Colours to Avoid.
-  - Eliminates duplicate or near-duplicate palettes using CIELAB Delta-E distance metrics ($ΔE \ge 6.0$).
-  - Evaluates palettes with a transparent heuristic match score (55% to 98%).
-
-- **Module F — Room Colour Visualization:**
-  - **Mode 1 (Local Wall Recolouring):** Intelligent wall segmentation combining Sobel edge detection, vertical priors, and color homogeneity region growing. Recolours walls using luminance-scaled blending to preserve ambient shadows, lighting gradients, and wall textures.
-  - **Mode 1 Comparison Modes:** Side-by-side comparison, interactive split divider slider, full room view, and wall mask overlay inspection.
-  - **Mode 2 (AI-Enhanced Generative Preview):** Connects to image-editing models (e.g. OpenAI DALL-E) to produce architectural renders while preserving room layout.
-
-- **Module G & H — Persistence & Export Consultation Suite:**
-  - Persistent SQLite database (`data/palettes.db`) for saving palettes, notes, and custom names.
-  - Search, retrieve, and delete historical palette records.
-  - Portable exports:
-    - **JSON:** Complete machine-readable metadata and colour values.
-    - **CSV:** Tabular hex, RGB, role, and proportion breakdown.
-    - **PNG Swatch Sheet:** High-resolution architectural presentation card.
-    - **TXT Consultation Report:** Formatted design summary with furniture compatibility guidelines.
+**CHROMA STUDIO AI** is an architectural-grade, computer-vision and AI-powered interior colour intelligence system. The application transforms uploaded room photographs into personalized colour concepts, visual simulations, and actionable design specifications while enforcing the 60-30-10 interior rule and perceptual color science.
 
 ---
 
-## 🎨 Design System Tokens
+## 🏛️ Distinctive Premium Features
 
-The user interface follows an architectural design aesthetic:
-- **Background:** `#F5F0E8` (Warm Ivory)
-- **Surface:** `#FFFCF7` (Cream Alabaster)
-- **Primary Text:** `#30271F` (Espresso)
-- **Secondary Text:** `#786B60` (Muted Sand Taupe)
-- **Primary Accent:** `#725640` (Rich Terracotta Umber)
-- **Secondary Accent:** `#B98468` (Warm Sienna)
-- **Subtle Border:** `#E3D8CB` (Soft Travertine)
+1. **Chroma Memory (Adaptive Personalization Engine):**
+   - Automatically learns user style tendencies based on favorited palettes and rejected tones.
+   - Adjusts subsequent recommendation rankings using an inspectable score modifier.
+   - History can be viewed and cleared at any time.
+
+2. **Chroma DNA (Personal Design Signature):**
+   - Deterministic design signature derivation reflecting dominant color families, contrast tendencies, temperature bias, and material affinities.
+   - Renders a 4-swatch signature strip that can be applied to new room spaces.
+
+3. **Design Timeline (Visual Versioning & Rollback):**
+   - Saves immutable design iteration snapshots with version numbers, timestamps, notes, and thumbnails.
+   - Revisit historical project states without losing iteration progress.
+
+4. **Colour Harmony Explorer:**
+   - 360° chromatic relationships: Complementary (+180°), Analogous (-30°, +30°), Triadic (+120°, +240°), Monochromatic tints and shades, and Neutral Supporting Greiges.
+   - Exact CIELAB perceptual distance calculations ($\Delta E$).
+
+5. **Daylight Simulator:**
+   - Visual simulation of 4 diurnal lighting conditions: *Warm Morning Light* (3200K), *Neutral Daylight* (5500K), *Cool Overcast Daylight* (6800K), and *Warm Evening Light* (2700K).
+   - Preserves luminance distribution while shifting spectral color balance.
+
+6. **Material-Aware Palettes Engine:**
+   - Evaluates compatibility against 9 architectural materials: *Oak Wood, Walnut Wood, Carrara Marble, Cast Concrete, Natural Stone, Brushed Brass, Black Matte Metal, Natural Linen, and Velvet*.
+   - Explains undertone synergies and potential clashes.
+
+7. **Colour Swap Playground:**
+   - Interactively swap any single slot (e.g. Accent or Primary Wall) while keeping other anchors locked.
+   - Updates palettes and preview renderings instantly.
+
+8. **Smart Paint Quantity Estimator:**
+   - Calculates net wall surface from room length, width, and wall height.
+   - Deducts standard doorways (1.89 m²) and window openings (1.44 m²).
+   - Computes required litres (with 10% safety margin), recommends packaging can breakdown (10L, 4L, 1L), and estimates cost at user-supplied INR rates.
+
+9. **Semantic Wall Editing:**
+   - Multi-plane region isolation: *Main Wall, Accent Wall, Ceiling / Upper Crown, and All Wall Surfaces*.
+   - Targeted recolouring preserves ambient room lighting and shadows.
 
 ---
 
-## 🚀 Installation & Setup
+## 🔒 Security & Authentication Architecture
 
-### Prerequisites
-- Python 3.10+ (tested on Python 3.14)
-- Pip
+- **Salted PBKDF2-HMAC-SHA256 Password Hashing:** 100,000 iterations with cryptographically random salts.
+- **Brute-Force Rate Limiting:** Automatic temporary lockout after 5 consecutive failed login attempts within 15 minutes.
+- **Secure Password Reset:** Single-use, time-limited HMAC reset tokens.
+- **Multi-Tenant Data Segregation:** All saved palettes, project timeline entries, profiles, and usage records enforce user ownership.
+- **Privacy & GDPR Compliance:** One-click personal data archive download (JSON) and permanent cascading account deletion.
 
-### 1. Clone or Open Workspace
+---
+
+## 💳 Indian Rupee (INR) Subscriptions & Entitlements
+
+Configurable tier structures with server-side backend enforcement:
+
+| Tier | Monthly (INR) | Annual (INR) | Monthly Analyses | AI Previews | Max Saved Palettes |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Free Starter** | ₹0 | ₹0 | 3 | 0 | 5 |
+| **Plus Creator** | ₹299 | ₹2,870 *(save ~20%)* | 30 | 5 | 50 |
+| **Pro Designer** | ₹699 | ₹6,710 *(save ~20%)* | 100 | 25 | 250 |
+
+- **Razorpay Integration:** Cryptographic HMAC-SHA256 payment signature verification (`order_id|payment_id`).
+- **Idempotent Webhook Processing:** Verifies `X-Razorpay-Signature` and prevents duplicate event execution using the `payment_events` table.
+- **Verified Sandbox Mode:** Includes cryptographic test simulation allowing local end-to-end checkout verification without live keys.
+
+---
+
+## 🎨 Editorial Design System Tokens
+
+The user interface supports both **Light** and **Dark** themes with typography set in *Plus Jakarta Sans* and *Playfair Display*:
+
+- **Light Mode:**
+  - Background: `#F5F0E8` (Warm Ivory)
+  - Surface: `#FFFCF7` (Cream Alabaster)
+  - Primary Text: `#30271F` (Espresso)
+  - Accent: `#725640` (Rich Umber)
+  - Secondary Accent: `#B98468` (Warm Sienna)
+- **Dark Mode:**
+  - Background: `#171916` (Deep Obsidian)
+  - Surface: `#222520` (Architectural Charcoal)
+  - Primary Text: `#F5F0E8` (Warm White)
+  - Accent: `#A9BFA2` (Muted Botanical Sage)
+  - Secondary Accent: `#C98F70` (Muted Terracotta)
+
+---
+
+## 🧪 Automated Test Suite (46 Tests Passing)
+
+Run all unit tests using pytest:
 ```bash
-cd f:\module
+python -m pytest tests/ -v
 ```
 
-### 2. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Configure Environment Variables (Optional)
-Copy `.env.example` to `.env`:
-```bash
-copy .env.example .env
-```
-
-Configure your API keys if you wish to enable cloud vision and generative features:
-```env
-# Vision Model (Google Gemini or OpenAI)
-VISION_PROVIDER=gemini
-VISION_API_KEY=your_gemini_api_key_here
-VISION_MODEL=gemini-1.5-flash
-
-# Image Editing / Preview Model
-IMAGE_EDIT_PROVIDER=openai
-IMAGE_EDIT_API_KEY=your_openai_api_key_here
-IMAGE_EDIT_MODEL=dall-e-3
-```
-> **Note:** Paid API keys are **not required** for core operation. All image processing, dominant color extraction, room analysis, palette generation, local wall recolouring, and exports run entirely offline with local fallbacks.
+All 46 automated tests run deterministically with synthetic test fixtures and zero external network calls:
+- `test_auth_security.py`: Password hashing, validation, signup, login, rate-limiting, token resets (4 tests)
+- `test_colour_extraction.py`: Dominant color extraction, luminance, and naming (4 tests)
+- `test_distinctive_features.py`: Chroma Memory, Chroma DNA, Timeline, Harmony Explorer, Daylight, Materials, Swapping, Paint Estimator, Semantic Wall (9 tests)
+- `test_image_validation.py`: Formats, sizes, corrupted file handling (5 tests)
+- `test_palette_engine.py`: 4 concepts, user preferences, deduplication (3 tests)
+- `test_preferences.py`: Avoid colors, accent saturation (2 tests)
+- `test_profile_and_privacy.py`: Profile CRUD, data export, cascading deletion (2 tests)
+- `test_resilience_and_fallbacks.py`: Zero-cost standalone resilience, API fallbacks (4 tests)
+- `test_storage.py`: SQLite persistence, exports (4 tests)
+- `test_subscription_and_billing.py`: Plan limits, Razorpay HMAC signatures, idempotent webhooks, sandbox (5 tests)
+- `test_visualization.py`: Wall segmentation, luminance-preserving recolouring, comparisons (4 tests)
 
 ---
 
-## 🏃 Running the Application
+## 🚀 Running the Application
 
-Launch the Streamlit web interface:
+Launch the Streamlit interface:
 ```bash
 python -m streamlit run app.py
 ```
 Open your browser at:
 `http://localhost:8501`
-
----
-
-## 🧪 Running the Automated Test Suite
-
-Run all automated unit tests using pytest:
-```bash
-python -m pytest tests/ -v
-```
-All 26 unit tests run deterministically with synthetic test images and zero external network calls:
-- Image decoding and validation
-- Corrupted/oversized image rejection
-- Dominant colour extraction from known colour patches
-- RGB/HEX and perceptual luminance conversions
-- 4-concept palette generation and required schema fields
-- User preference responsiveness
-- CIELAB duplicate palette elimination
-- Luminance-preserving wall recolouring and outside-mask pixel preservation
-- SQLite save, retrieve, search, and delete
-- JSON, CSV, Swatch Sheet PNG, and TXT report exports
-- Missing API credentials handling and provider failure recovery
-- Zero-cost standalone execution
-
----
-
-## 📐 Project Structure
-
-```
-f:\module\
-├── app.py                      # Main Streamlit application orchestrating the 11-step journey
-├── requirements.txt            # Project dependencies
-├── README.md                   # Complete architectural documentation
-├── IMPLEMENTATION_PLAN.md      # Implementation blueprint
-├── .env.example                # Example environment variable template
-├── .gitignore                  # Git ignore rules
-├── config/
-│   ├── __init__.py
-│   └── settings.py             # Global constants, paths, design tokens, room types
-├── models/
-│   ├── __init__.py
-│   └── schemas.py              # Pydantic schemas (ColorSwatch, PaletteConcept, RoomAnalysis)
-├── modules/
-│   ├── __init__.py
-│   ├── image_upload.py         # Image upload processing
-│   ├── image_validation.py     # File validation, MIME/magic bytes, EXIF orientation
-│   ├── image_processing.py     # NumPy/OpenCV conversions, RGB/HSV/Lab, luminance, temperature
-│   ├── colour_extraction.py    # K-Means clustering, noise rejection, interior naming
-│   ├── colour_theory.py        # Harmonies (Analogous, Mono, Comp, Neutral), Delta-E distance
-│   ├── palette_engine.py       # Deterministic 4-concept palette generator & heuristic ranking
-│   ├── wall_segmentation.py    # Gradient edge detection, vertical prior, homogeneity mask
-│   ├── room_visualization.py   # Luminance-preserving recolouring, side-by-side, split slider
-│   ├── room_analysis.py        # Room analysis orchestrator
-│   ├── ai_preview.py           # Generative preview wrapper
-│   ├── preferences.py          # User preference definitions and presets
-│   ├── storage.py              # SQLite database persistence and querying
-│   └── export_service.py       # JSON, CSV, PNG Swatch sheet, and TXT report generators
-├── services/
-│   ├── __init__.py
-│   ├── vision_provider.py      # Google Gemini / OpenAI vision provider with local fallback
-│   └── image_editing_provider.py # Generative preview provider with offline fallback
-├── ui/
-│   ├── __init__.py
-│   ├── styles.py               # Custom design system CSS
-│   └── components.py           # Reusable Streamlit UI components
-├── data/
-│   └── .gitkeep                # SQLite storage directory
-└── tests/
-    ├── __init__.py
-    ├── test_image_validation.py
-    ├── test_colour_extraction.py
-    ├── test_palette_engine.py
-    ├── test_preferences.py
-    ├── test_visualization.py
-    ├── test_storage.py
-    └── test_resilience_and_fallbacks.py
-```
-
----
-
-## 🔍 Known Limitations & Optical Realities
-
-1. **Camera Sensor White Balance:** Digital cameras automatically shift color temperature depending on indoor incandescent vs outdoor daylight. Extracted colours reflect observed pixel values rather than physical paint pigments.
-2. **Wall Segmentation Accuracy:** Complex scenes with intricate millwork, open shelving, or wallpaper patterns may require adjusting the *Sensitivity* and *Edge Protection* sliders in Mode 1.
-3. **AI-Enhanced Preview Fidelity:** Generative image editing models (Mode 2) may occasionally alter small background decorative items while changing wall colours. Mode 1 is recommended for exact architectural layout preservation.
