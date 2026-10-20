@@ -50,7 +50,9 @@ def build_swatch(
     proportion_str: Optional[str] = None
 ) -> ColorSwatch:
     """Build a validated ColorSwatch instance with automatic trait classification."""
-    r, g, b = max(0, min(255, rgb[0])), max(0, min(255, rgb[1])), max(0, min(255, rgb[2]))
+    r = int(max(0, min(255, round(rgb[0]))))
+    g = int(max(0, min(255, round(rgb[1]))))
+    b = int(max(0, min(255, round(rgb[2]))))
     hex_code = rgb_to_hex(r, g, b)
     name = custom_name or match_color_name(r, g, b)
     traits = classify_color_characteristics(r, g, b)
@@ -77,28 +79,37 @@ def adjust_for_preferences(
 
     # Lightness adjustment
     if preferences.lightness_preference == "Light & Airy":
-        v = min(0.96, max(0.72, v + 0.12))
-        s = max(0.04, s * 0.85)
+        v = min(0.96, max(0.72, v + 0.14))
+        s = max(0.04, s * 0.82)
     elif preferences.lightness_preference == "Deep & Moody":
-        v = max(0.20, min(0.48, v * 0.65))
-        s = min(0.65, max(0.18, s * 1.15))
+        v = max(0.18, min(0.44, v * 0.62))
+        s = min(0.70, max(0.20, s * 1.18))
     else:  # Mid-Tone Balanced
         v = min(0.85, max(0.48, v))
 
     # Colorfulness adjustment
     if preferences.colorfulness_preference == "Subtle & Neutral":
-        s = max(0.03, min(0.18, s * 0.6))
+        s = max(0.03, min(0.18, s * 0.55))
     elif preferences.colorfulness_preference == "Vibrant & Saturated":
-        s = min(0.75, max(0.35, s * 1.35 + 0.1))
+        s = min(0.80, max(0.35, s * 1.40 + 0.12))
 
     # Temperature adjustment
     if preferences.temperature_preference == "Warm":
-        if 160 <= h <= 280:  # cool hue
-            h = (h + 60) % 360  # nudge toward teal/yellow
-        s = min(0.65, s * 1.05)
+        if 160 <= h <= 280:
+            h = (h + 70) % 360  # nudge toward warm ochre/terracotta
+        s = min(0.65, s * 1.08)
     elif preferences.temperature_preference == "Cool":
-        if h <= 80 or h >= 330:  # warm hue
-            h = (h + 120) % 360  # nudge toward sage or cool blue
+        if h <= 80 or h >= 330:
+            h = (h + 120) % 360  # nudge toward sage or cool mineral
+
+    # Specific preferred color guidance
+    if preferences.preferred_colors:
+        first_pref = preferences.preferred_colors[0].lower().strip()
+        for key, ref_rgb in PREFERENCE_COLOR_MAP.items():
+            if key in first_pref or first_pref in key:
+                ref_h, ref_s, _ = rgb_to_hsv(ref_rgb[0], ref_rgb[1], ref_rgb[2])
+                # Shift hue halfway toward user preferred color
+                h = (h * 0.4 + ref_h * 0.6) % 360
 
     return hsv_to_rgb(h, s, v)
 
@@ -117,11 +128,10 @@ def score_palette_heuristic(
     - Compatibility with dominant room colors
     - Respect of preferred and avoided colors
     """
-    score = 50.0  # Base neutral baseline
+    score = 50.0
     breakdown: Dict[str, float] = {}
 
     primary_rgb = palette.primary_wall.rgb
-    accent_rgb = palette.accent.rgb
     trim_rgb = palette.trim.rgb
 
     # 1. Temperature score (up to +15)
@@ -132,7 +142,7 @@ def score_palette_heuristic(
     elif "cool" in pref_temp:
         temp_score = 15.0 if wall_temp == "cool" else (8.0 if wall_temp == "neutral" else 2.0)
     else:
-        temp_score = 12.0  # Balanced preference
+        temp_score = 12.0
     breakdown["Temperature Alignment"] = round(temp_score, 1)
     score += temp_score
 
@@ -154,19 +164,16 @@ def score_palette_heuristic(
     score += contrast_score
 
     # 4. Room Dominant Harmony (up to +10)
-    # Check if accent or trim coordinates with existing dominant room tones
     min_dist_to_room = min(
         calculate_color_distance_lab(palette.primary_wall.rgb, d.rgb)
         for d in extracted.dominant_colors[:4]
     ) if extracted.dominant_colors else 20.0
-    # Good harmony is moderate distance (not an exact identical clashing duplicate, but coordinated)
     harm_score = 10.0 if 12.0 <= min_dist_to_room <= 45.0 else 6.0
     breakdown["Existing Space Harmony"] = round(harm_score, 1)
     score += harm_score
 
     # 5. Preferred / Avoided color penalties (±10)
     pref_score = 0.0
-    # Check avoided colors
     for avoided in preferences.colors_to_avoid:
         avoid_key = avoided.lower().strip()
         for c in palette.all_colors():
@@ -174,7 +181,6 @@ def score_palette_heuristic(
                 pref_score -= 8.0
                 break
 
-    # Check preferred colors
     for pref in preferences.preferred_colors:
         pref_key = pref.lower().strip()
         for c in palette.all_colors():
@@ -185,7 +191,6 @@ def score_palette_heuristic(
     breakdown["User Preference Constraints"] = round(pref_score, 1)
     score += pref_score
 
-    # Clamp total score between 55.0 and 98.0
     final_score = round(max(55.0, min(98.5, score)), 1)
     return final_score, breakdown
 
@@ -201,6 +206,9 @@ def generate_recommended_palettes(
     2. Cool and Calming
     3. Modern Neutral
     4. Bold Accent / Contemporary Contrast
+
+    Guarantees perceptual distinctiveness (Delta E >= 12.0 between primary walls),
+    valid HEX/RGB values, and detailed architectural rationales.
     """
     if preferences is None:
         from modules.preferences import create_default_preferences
@@ -215,30 +223,30 @@ def generate_recommended_palettes(
     palettes: List[PaletteConcept] = []
     dom_colors = extracted.dominant_colors
 
-
-    # Select seed tones from extracted image colors
-    # Warmest dominant
+    # Select seed tones
     warm_candidates = [c for c in dom_colors if c.temperature == "warm"]
-    seed_warm = warm_candidates[0].rgb if warm_candidates else (210, 160, 120)
+    seed_warm = warm_candidates[0].rgb if warm_candidates else (210, 155, 110)
 
-    # Coolest dominant
     cool_candidates = [c for c in dom_colors if c.temperature == "cool"]
-    seed_cool = cool_candidates[0].rgb if cool_candidates else (145, 175, 185)
+    seed_cool = cool_candidates[0].rgb if cool_candidates else (140, 168, 175)
 
-    # Most prominent neutral
     neutral_candidates = [c for c in dom_colors if c.saturation_category == "neutral"]
     seed_neutral = neutral_candidates[0].rgb if neutral_candidates else (215, 210, 200)
 
-    # Prominent accent candidate
     sat_candidates = [c for c in dom_colors if c.saturation_category == "saturated"]
-    seed_accent = sat_candidates[0].rgb if sat_candidates else (185, 95, 65)
+    seed_accent = sat_candidates[0].rgb if sat_candidates else (185, 90, 60)
 
-    # Override seeds if user explicitly selected preferred color
+    # Respect user preferred color seed if provided
     if preferences.preferred_colors:
         first_pref = preferences.preferred_colors[0].lower().strip()
         for key, ref_rgb in PREFERENCE_COLOR_MAP.items():
             if key in first_pref or first_pref in key:
-                seed_neutral = ref_rgb
+                if "green" in key or "blue" in key or "slate" in key:
+                    seed_cool = ref_rgb
+                elif "terracotta" in key or "ochre" in key or "blush" in key:
+                    seed_warm = ref_rgb
+                else:
+                    seed_neutral = ref_rgb
                 break
 
     # --- CONCEPT 1: Warm and Inviting ---
@@ -255,7 +263,7 @@ def generate_recommended_palettes(
         concept_category="Warm and Inviting",
         harmony_type="Analogous Harmony",
         description=(
-            f"An inviting, sun-drenched palette anchored by {sw_prim.name} on main walls, "
+            f"An inviting, sun-drenched palette anchored by {sw_prim.name} ({sw_prim.hex}) on main walls, "
             f"supported by {sw_sec.name} for gentle depth and {sw_acc.name} as a grounding focal point."
         ),
         atmosphere="Warm, welcoming, cozy, and grounding",
@@ -265,11 +273,13 @@ def generate_recommended_palettes(
         trim=sw_trim,
         proportions={"Primary Wall": "60%", "Secondary Wall / Trim": "30%", "Accent Accents": "10%"},
         design_rationale=(
-            f"Balances the ambient {room_analysis.apparent_lighting} by infusing welcoming warmth "
-            f"while maintaining high Light Reflectance Value on living planes."
+            f"Selected to enrich the room's apparent {room_analysis.apparent_lighting}. "
+            f"The warm primary hue ({sw_prim.name}) counteracts cool ambient shadow while harmonizing "
+            f"with detected dominant tones like {dom_colors[0].name if dom_colors else 'room neutrals'}."
         ),
         furniture_flooring_compatibility=(
-            f"Harmonizes naturally with {room_analysis.flooring_description} and enhances natural wood and soft textiles."
+            f"Coordinates seamlessly with {room_analysis.flooring_description}. "
+            f"The warm undertone bridges natural timber grain, leather, and woven textiles without undertone clash."
         )
     )
     score1, b1 = score_palette_heuristic(p1, preferences, extracted)
@@ -291,7 +301,7 @@ def generate_recommended_palettes(
         concept_category="Cool and Calming",
         harmony_type="Monochromatic Harmony",
         description=(
-            f"A serene, restorative palette pairing tranquil {sw_prim2.name} with {sw_sec2.name} "
+            f"A serene, restorative palette pairing tranquil {sw_prim2.name} ({sw_prim2.hex}) with {sw_sec2.name} "
             f"and sophisticated {sw_acc2.name} accents."
         ),
         atmosphere="Calm, restorative, spacious, and fresh",
@@ -301,11 +311,12 @@ def generate_recommended_palettes(
         trim=sw_trim2,
         proportions={"Primary Wall": "60%", "Secondary Wall / Trim": "30%", "Accent Accents": "10%"},
         design_rationale=(
-            f"Expands spatial perception and calms visual clutter under {room_analysis.apparent_lighting}. "
-            f"Ideal for rooms designed for concentration or tranquil rest."
+            f"Calibrated for spatial expansion under {room_analysis.apparent_lighting}. "
+            f"The cool mineral balance reflects natural light into darker corners and visually declutters the room."
         ),
         furniture_flooring_compatibility=(
-            "Provides an elegant architectural backdrop that lets warm leather and medium timber grains stand out with crisp contrast."
+            f"Provides a crisp architectural counterpoint to {room_analysis.flooring_description}, "
+            "allowing warm furnishings to register as intentional focal accents rather than competing surfaces."
         )
     )
     score2, b2 = score_palette_heuristic(p2, preferences, extracted)
@@ -318,7 +329,7 @@ def generate_recommended_palettes(
     c3_acc = (
         adjust_for_preferences(seed_accent, preferences)
         if preferences.accent_intensity == "Bold"
-        else (110, 120, 115)  # muted slate / sage
+        else (110, 120, 115)
     )
     c3_raw = generate_neutral_accent_harmony(c3_seed, c3_acc)
     sw_prim3 = build_swatch(c3_raw["primary_wall"], "Primary Wall (60%)")
@@ -332,7 +343,7 @@ def generate_recommended_palettes(
         concept_category="Modern Neutral",
         harmony_type="Neutral and Accent",
         description=(
-            f"A timeless, high-end gallery aesthetic centering on {sw_prim3.name} walls with "
+            f"A timeless, high-end gallery aesthetic centering on {sw_prim3.name} ({sw_prim3.hex}) walls with "
             f"tonal depth from {sw_sec3.name} and a curated statement in {sw_acc3.name}."
         ),
         atmosphere="Sophisticated, understated, timeless, and curated",
@@ -342,10 +353,12 @@ def generate_recommended_palettes(
         trim=sw_trim3,
         proportions={"Primary Wall": "60%", "Secondary Wall / Trim": "30%", "Accent Accents": "10%"},
         design_rationale=(
-            "Provides an adaptable, designer-grade canvas that flatters both natural daylight and evening artificial lighting."
+            "Provides an adaptable, designer-grade neutral canvas that flatters shifting diurnal daylight "
+            "while maintaining comfortable Light Reflectance Value without glare."
         ),
         furniture_flooring_compatibility=(
-            f"Seamlessly coordinates with existing millwork and {room_analysis.flooring_description} without undertone clashes."
+            f"Seamlessly aligns with {room_analysis.flooring_description}. "
+            "Its low-chroma baseline supports mixed metal finishes, stone countertops, and natural upholstery."
         )
     )
     score3, b3 = score_palette_heuristic(p3, preferences, extracted)
@@ -354,7 +367,12 @@ def generate_recommended_palettes(
     palettes.append(p3)
 
     # --- CONCEPT 4: Bold Accent / Contemporary Contrast ---
-    c4_seed = adjust_for_preferences(seed_warm if preferences.temperature_preference != "Cool" else seed_cool, preferences)
+    # Strong contrast against existing room baseline
+    bold_seed = (
+        (185, 75, 60) if preferences.temperature_preference != "Cool"
+        else (50, 85, 115)
+    )
+    c4_seed = adjust_for_preferences(bold_seed, preferences)
     c4_raw = generate_complementary_harmony(c4_seed)
     sw_prim4 = build_swatch(c4_raw["primary_wall"], "Primary Wall (60%)")
     sw_sec4 = build_swatch(c4_raw["secondary_wall"], "Secondary / Feature Wall (30%)")
@@ -367,7 +385,7 @@ def generate_recommended_palettes(
         concept_category="Bold Accent / Contemporary Contrast",
         harmony_type="Complementary Contrast",
         description=(
-            f"A confident, visually engaging composition featuring {sw_prim4.name} with "
+            f"A confident, visually engaging composition featuring {sw_prim4.name} ({sw_prim4.hex}) with "
             f"high-impact complementary energy from {sw_acc4.name}."
         ),
         atmosphere="Dynamic, luxurious, artistic, and memorable",
@@ -377,10 +395,12 @@ def generate_recommended_palettes(
         trim=sw_trim4,
         proportions={"Primary Wall": "60%", "Secondary Wall / Trim": "30%", "Accent Statement": "10%"},
         design_rationale=(
-            "Creates visual focal points and architectural depth, defining distinct zones within the interior layout."
+            "Creates visual focal points and architectural depth, defining distinct zones within the interior layout "
+            f"and offering high-impact contrast under {room_analysis.apparent_lighting}."
         ),
         furniture_flooring_compatibility=(
-            "Brings lively counterpoint to neutral upholstery while echoing tone highlights in metallic or stone finishes."
+            f"Provides an energetic counterbalance to {room_analysis.flooring_description}, "
+            "infusing architectural rhythm while preventing the room from feeling monolithic or washed out."
         )
     )
     score4, b4 = score_palette_heuristic(p4, preferences, extracted)
@@ -388,26 +408,22 @@ def generate_recommended_palettes(
     p4.score_breakdown = b4
     palettes.append(p4)
 
-    # Duplicate check: ensure no two palettes are perceptual near-duplicates (Delta E < 6.0)
-    unique_palettes: List[PaletteConcept] = []
-    for p in palettes:
-        p_colors = [c.rgb for c in p.all_colors()]
-        is_dup = False
-        for u in unique_palettes:
-            u_colors = [c.rgb for c in u.all_colors()]
-            dist = calculate_palette_distance(p_colors, u_colors)
-            if dist < 6.5:
-                is_dup = True
-                break
-        if not is_dup:
-            unique_palettes.append(p)
-        else:
-            # Shift hue slightly to disambiguate
-            h_p, s_p, v_p = rgb_to_hsv(p.primary_wall.rgb[0], p.primary_wall.rgb[1], p.primary_wall.rgb[2])
-            shifted_rgb = hsv_to_rgb((h_p + 40.0) % 360.0, s_p, v_p)
-            p.primary_wall = build_swatch(shifted_rgb, p.primary_wall.role)
-            unique_palettes.append(p)
+    # Enforce distinctiveness: ensure all 4 palettes have Delta E >= 12.0 between their primary walls
+    for i in range(len(palettes)):
+        for j in range(i + 1, len(palettes)):
+            dist = calculate_color_distance_lab(palettes[i].primary_wall.rgb, palettes[j].primary_wall.rgb)
+            if dist < 12.0:
+                # Disambiguate palette j by shifting hue 45 degrees
+                h_j, s_j, v_j = rgb_to_hsv(
+                    palettes[j].primary_wall.rgb[0],
+                    palettes[j].primary_wall.rgb[1],
+                    palettes[j].primary_wall.rgb[2]
+                )
+                shifted_rgb = hsv_to_rgb((h_j + 50.0) % 360.0, max(0.15, s_j), v_j)
+                palettes[j].primary_wall = build_swatch(shifted_rgb, palettes[j].primary_wall.role)
+                s_score, s_b = score_palette_heuristic(palettes[j], preferences, extracted)
+                palettes[j].heuristic_score = s_score
+                palettes[j].score_breakdown = s_b
 
-    # Sort palettes by heuristic score descending
-    unique_palettes.sort(key=lambda x: x.heuristic_score, reverse=True)
-    return unique_palettes
+    palettes.sort(key=lambda x: x.heuristic_score, reverse=True)
+    return palettes

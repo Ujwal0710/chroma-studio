@@ -59,6 +59,7 @@ class RoomAnalysisResult(BaseModel):
     detected_room_type: str
     detected_style: str
     visible_materials: List[str] = Field(default_factory=list)
+    visible_furniture: List[str] = Field(default_factory=list)
     existing_wall_description: str
     flooring_description: str
     dominant_color_observations: List[str] = Field(default_factory=list)
@@ -67,6 +68,7 @@ class RoomAnalysisResult(BaseModel):
     brightness_level: str = "medium"
     design_strengths: List[str] = Field(default_factory=list)
     design_challenges: List[str] = Field(default_factory=list)
+    compatibility_constraints: List[str] = Field(default_factory=list)
     recommended_direction: str
     confidence_notes: str
     is_ai_inferred: bool = False

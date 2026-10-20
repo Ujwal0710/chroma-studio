@@ -3,8 +3,10 @@ import os
 import json
 import io
 import base64
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from PIL import Image
+import numpy as np
+import cv2
 
 from config.settings import (
     VISION_API_KEY,
@@ -16,12 +18,13 @@ from models.schemas import RoomAnalysisResult, ExtractedColorAnalysis
 
 
 VISION_ANALYSIS_PROMPT = """
-You are a senior interior designer and architectural colour consultant.
-Analyze this room photograph and return a structured JSON response matching this schema:
+You are a senior architectural interior designer and colour consultant.
+Analyze this room photograph and return a structured JSON response matching this exact schema:
 {
   "detected_room_type": "string (e.g., Living Room, Bedroom, Kitchen, Dining Room, Home Office, Bathroom)",
   "detected_style": "string (e.g., Modern, Scandinavian, Traditional, Minimalist, Contemporary, Industrial, Japandi)",
   "visible_materials": ["list of strings, e.g., 'Oak hardwood flooring', 'Linen sofa', 'Brass hardware', 'Glass coffee table'"],
+  "visible_furniture": ["list of strings, e.g., 'Modular sectional sofa', 'Low oak credenza', 'Linen armchair', 'Floor lamp'"],
   "existing_wall_description": "string describing current wall colour and finish",
   "flooring_description": "string describing flooring material and tone",
   "dominant_color_observations": ["list of strings describing key colours noticed"],
@@ -30,12 +33,14 @@ Analyze this room photograph and return a structured JSON response matching this
   "brightness_level": "bright | medium | dim",
   "design_strengths": ["list of strings highlighting positive architectural or styling features"],
   "design_challenges": ["list of strings noting challenges like low natural light, competing undertones, etc."],
+  "compatibility_constraints": ["list of strings noting fixed constraints like warm wood undertones, brass accents, or dark flooring"],
   "recommended_direction": "string giving specific expert advice on wall colour palettes that elevate this space",
   "confidence_notes": "string detailing any camera white-balance ambiguity or partial visibility constraints"
 }
 
 Important:
 - Return ONLY valid raw JSON without markdown backticks or commentary.
+- Distinguish direct visual observations (colours, flooring, fixtures) from inferences (architectural style, intended room function).
 - Be precise regarding undertones (e.g. pinkish beige, green-gray, yellow-cream) to ensure accurate paint matching.
 """
 
@@ -61,7 +66,6 @@ def call_gemini_vision(
 ) -> Dict[str, Any]:
     """Call Google Gemini Vision API using google-genai or google-generativeai."""
     try:
-        # Try google.genai client (new SDK)
         from google import genai
         from google.genai import types
 
@@ -85,19 +89,16 @@ def call_gemini_vision(
         return json.loads(raw_text)
 
     except ImportError:
-        # Fallback to google.generativeai (legacy SDK)
         import google.generativeai as genai
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name or "gemini-1.5-flash")
 
-        # Convert image to bytes
         buffer = io.BytesIO()
         img.save(buffer, format="JPEG", quality=85)
         image_parts = [{"mime_type": "image/jpeg", "data": buffer.getvalue()}]
 
         response = model.generate_content([image_parts[0], VISION_ANALYSIS_PROMPT])
         raw_text = response.text.strip()
-        # Clean potential markdown fences
         if raw_text.startswith("```json"):
             raw_text = raw_text[7:]
         if raw_text.startswith("```"):
@@ -157,29 +158,30 @@ def generate_local_rule_based_analysis(
     selected_style: str = "Automatic Detection"
 ) -> RoomAnalysisResult:
     """
-    Deterministic local fallback analysis based on computer vision color extraction,
+    Deterministic local analysis based on computer vision color extraction,
     optical luminance, and lighting analysis when external vision API is not configured or fails.
+    Explicitly marks reduced mode and differentiates visual observations from uncertain inferences.
     """
-    # Infer room type if set to Automatic
+    # Inferred room type
     if selected_room_type == "Automatic Detection":
-        inferred_room = "Living Room"  # Standard default interior
+        inferred_room = "Living Room (Inferred default interior)"
     else:
         inferred_room = selected_room_type
 
-    # Infer style
+    # Inferred style based on color entropy & balance
     if selected_style == "Automatic Detection":
         if extracted_analysis.neutral_count >= 4:
-            inferred_style = "Scandinavian / Minimalist"
+            inferred_style = "Scandinavian / Minimalist (High neutral proportion)"
         elif extracted_analysis.warm_count >= 4:
-            inferred_style = "Warm Traditional / Contemporary"
+            inferred_style = "Warm Traditional / Contemporary (Warm baseline)"
         elif extracted_analysis.overall_brightness < 0.35:
-            inferred_style = "Modern Industrial"
+            inferred_style = "Modern Industrial / Moody"
         else:
             inferred_style = "Modern Contemporary"
     else:
         inferred_style = selected_style
 
-    # Key dominant observations
+    # Key dominant visual observations (verifiable facts from pixel analysis)
     top_colors = extracted_analysis.dominant_colors[:4]
     color_obs = [
         f"{c.role}: {c.name} ({c.hex}) - {c.description}"
@@ -191,14 +193,30 @@ def generate_local_rule_based_analysis(
     dark_elements = [c for c in extracted_analysis.dominant_colors if c.luminance and c.luminance < 0.35]
 
     existing_wall = (
-        f"Inferred light architectural base matching {light_neutrals[0].name} ({light_neutrals[0].hex})"
+        f"Measured dominant light surface matching {light_neutrals[0].name} ({light_neutrals[0].hex})"
         if light_neutrals else f"Subdued base matching {top_colors[0].name} ({top_colors[0].hex})"
     )
 
     flooring_desc = (
-        f"Medium to deep grounding surfaces matching {dark_elements[0].name} ({dark_elements[0].hex})"
-        if dark_elements else "Neutral warm underlay with balanced reflectance"
+        f"Grounding surface tone matching {dark_elements[0].name} ({dark_elements[0].hex})"
+        if dark_elements else "Neutral warm flooring with balanced reflectance"
     )
+
+    visible_mats = [
+        "Architectural wall planes (smooth matte/eggshell)",
+        "Hardwood / neutral flooring base",
+        "Textile upholstery elements"
+    ]
+
+    furniture_inferred = [
+        "Seating & millwork planes (derived from mid-tone spatial clusters)",
+        "Architectural window / door trim framing"
+    ]
+
+    constraints = [
+        f"Fixed flooring tone ({flooring_desc}) requires undertone alignment to avoid muddy clashing.",
+        f"Lighting environment is measured as {extracted_analysis.lighting_condition_estimate}."
+    ]
 
     strengths = [
         f"Established {extracted_analysis.overall_temperature_tendency} tonal baseline across dominant surfaces.",
@@ -217,14 +235,15 @@ def generate_local_rule_based_analysis(
     )
 
     confidence = (
-        "Locally synthesized via K-Means colour clustering and ITU-R BT.709 perceptual luminance. "
-        "Camera white balance and local shading may influence measured chromaticity."
+        "[Reduced Local Analysis Mode] Synthesized locally via K-Means colour clustering and ITU-R BT.709 perceptual luminance. "
+        "Vision LLM is not configured or was unreachable. Direct pixel measurements are exact; room type, furniture, and style are heuristic inferences."
     )
 
     return RoomAnalysisResult(
         detected_room_type=inferred_room,
         detected_style=inferred_style,
-        visible_materials=["Natural architectural textures", "Neutral fabric upholstery", "Reflective painted planes"],
+        visible_materials=visible_mats,
+        visible_furniture=furniture_inferred,
         existing_wall_description=existing_wall,
         flooring_description=flooring_desc,
         dominant_color_observations=color_obs,
@@ -233,10 +252,11 @@ def generate_local_rule_based_analysis(
         brightness_level="bright" if extracted_analysis.overall_brightness > 0.6 else ("dim" if extracted_analysis.overall_brightness < 0.32 else "medium"),
         design_strengths=strengths,
         design_challenges=challenges,
+        compatibility_constraints=constraints,
         recommended_direction=recommended,
         confidence_notes=confidence,
         is_ai_inferred=False,
-        provider_name="Local Computer Vision Fallback"
+        provider_name="Local Computer Vision (Reduced Mode)"
     )
 
 
@@ -265,7 +285,6 @@ def perform_room_analysis(
             selected_style=selected_style
         )
 
-    # Attempt Vision API call
     try:
         if VISION_PROVIDER == "openai_compatible":
             raw_result = call_openai_compatible_vision(
@@ -275,18 +294,17 @@ def perform_room_analysis(
                 endpoint=VISION_API_ENDPOINT
             )
         else:
-            # Default to Gemini
             raw_result = call_gemini_vision(
                 img=img,
                 api_key=api_key,
                 model_name=VISION_MODEL
             )
 
-        # Validate with RoomAnalysisResult schema
         result = RoomAnalysisResult(
             detected_room_type=raw_result.get("detected_room_type") if selected_room_type == "Automatic Detection" else selected_room_type,
             detected_style=raw_result.get("detected_style") if selected_style == "Automatic Detection" else selected_style,
             visible_materials=raw_result.get("visible_materials", []),
+            visible_furniture=raw_result.get("visible_furniture", []),
             existing_wall_description=raw_result.get("existing_wall_description", "Standard neutral interior wall"),
             flooring_description=raw_result.get("flooring_description", "Hardwood or neutral flooring"),
             dominant_color_observations=raw_result.get("dominant_color_observations", []),
@@ -295,22 +313,22 @@ def perform_room_analysis(
             brightness_level=raw_result.get("brightness_level", "medium"),
             design_strengths=raw_result.get("design_strengths", []),
             design_challenges=raw_result.get("design_challenges", []),
+            compatibility_constraints=raw_result.get("compatibility_constraints", []),
             recommended_direction=raw_result.get("recommended_direction", "Harmonize with existing flooring and trim"),
-            confidence_notes=raw_result.get("confidence_notes", "Analysis verified through vision-capable model."),
+            confidence_notes=raw_result.get("confidence_notes", "Verified through cloud vision model inference."),
             is_ai_inferred=True,
             provider_name=f"Vision Model ({VISION_PROVIDER.capitalize()} - {VISION_MODEL})"
         )
         return result
 
     except Exception as e:
-        # Fallback gracefully and document the error without crashing
         fallback = generate_local_rule_based_analysis(
             extracted_analysis=extracted_analysis,
             selected_room_type=selected_room_type,
             selected_style=selected_style
         )
         fallback.confidence_notes = (
-            f"Vision API request failed ({type(e).__name__}: {str(e)}). "
+            f"[Reduced Local Analysis Mode] Vision API request failed ({type(e).__name__}: {str(e)}). "
             f"Safely fell back to deterministic local CV analysis."
         )
         return fallback

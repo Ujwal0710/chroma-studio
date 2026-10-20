@@ -24,8 +24,10 @@ from modules.room_visualization import (
     apply_luminance_preserving_recolour,
     create_side_by_side_comparison,
     create_split_slider_comparison,
-    create_mask_overlay_preview
+    create_mask_overlay_preview,
+    LUMINANCE_STRATEGIES
 )
+from modules.quality_control import validate_recolour_quality, QualityControlReport
 from modules.storage import (
     save_palette,
     list_saved_palettes,
@@ -108,6 +110,9 @@ __all__ = [
     "create_side_by_side_comparison",
     "create_split_slider_comparison",
     "create_mask_overlay_preview",
+    "LUMINANCE_STRATEGIES",
+    "validate_recolour_quality",
+    "QualityControlReport",
     "save_palette",
     "list_saved_palettes",
     "get_saved_palette_by_id",

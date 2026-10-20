@@ -62,8 +62,10 @@ from modules.room_visualization import (
     apply_luminance_preserving_recolour,
     create_side_by_side_comparison,
     create_split_slider_comparison,
-    create_mask_overlay_preview
+    create_mask_overlay_preview,
+    LUMINANCE_STRATEGIES
 )
+from modules.quality_control import validate_recolour_quality, QualityControlReport
 try:
     from modules.ai_preview import (
         request_ai_enhanced_preview,
@@ -185,6 +187,14 @@ if "edge_protection" not in st.session_state:
     st.session_state.edge_protection = 0.65
 if "upper_bias" not in st.session_state:
     st.session_state.upper_bias = 0.70
+if "shading_retention" not in st.session_state:
+    st.session_state.shading_retention = 0.75
+if "recolour_strategy" not in st.session_state:
+    st.session_state.recolour_strategy = "cielab_perceptual"
+if "selected_wall_plane_id" not in st.session_state:
+    st.session_state.selected_wall_plane_id = None
+if "manual_mask_adjustments" not in st.session_state:
+    st.session_state.manual_mask_adjustments = []
 if "ai_preview_result" not in st.session_state:
     st.session_state.ai_preview_result = None
 if "save_status_message" not in st.session_state:
@@ -216,13 +226,20 @@ def cached_dominant_colors(image_bytes: bytes, num_colors: int = 7) -> Dict[str,
 
 
 @st.cache_data(show_spinner=False)
-def cached_wall_mask(image_bytes: bytes, sensitivity: float, upper_bias: float, edge_protection: float) -> Tuple[bytes, Dict[str, Any]]:
+def cached_wall_mask(
+    image_bytes: bytes,
+    sensitivity: float,
+    upper_bias: float,
+    edge_protection: float,
+    target_plane_id: Optional[int] = None
+) -> Tuple[bytes, Dict[str, Any]]:
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
     mask, meta = generate_wall_mask(
         img,
         sensitivity=sensitivity,
         upper_bias=upper_bias,
-        edge_protection=edge_protection
+        edge_protection=edge_protection,
+        target_plane_id=target_plane_id
     )
     mask_img = Image.fromarray(mask, mode="L")
     buf = io.BytesIO()
@@ -685,20 +702,107 @@ elif st.session_state.current_view == "🖼️ Visualization Studio":
             with c4:
                 preview_type = st.selectbox("Comparison View", ["Side-by-Side Comparison", "Split Slider Comparison", "Full Recoloured Room", "Wall Mask Overlay"])
 
+            c5, c6, c7 = st.columns([1.5, 1.2, 1.3])
+            with c5:
+                strat_options = list(LUMINANCE_STRATEGIES.keys())
+                st.session_state.recolour_strategy = st.selectbox(
+                    "Luminance Preservation Engine",
+                    strat_options,
+                    index=strat_options.index(st.session_state.recolour_strategy) if st.session_state.recolour_strategy in strat_options else 0,
+                    format_func=lambda s: LUMINANCE_STRATEGIES.get(s, s)
+                )
+            with c6:
+                st.session_state.shading_retention = st.slider("Shading & Texture Depth", 0.2, 1.0, float(st.session_state.shading_retention), 0.05)
+            with c7:
+                # Plane options will be dynamically updated after mask analysis
+                plane_selection_placeholder = st.empty()
+
+            # Retrieve mask and architectural planes
             mask_png_bytes, mask_meta = cached_wall_mask(
                 st.session_state.current_image_bytes,
                 st.session_state.mask_sensitivity,
                 st.session_state.upper_bias,
-                st.session_state.edge_protection
+                st.session_state.edge_protection,
+                target_plane_id=st.session_state.selected_wall_plane_id
             )
             wall_mask_arr = np.array(Image.open(io.BytesIO(mask_png_bytes)).convert("L"))
+
+            # Multi-plane selector
+            detected_planes = mask_meta.get("detected_planes", [])
+            plane_choices = [("all", "All Detected Wall Planes")]
+            for p in detected_planes:
+                plane_choices.append((p["plane_id"], f"{p['name']} ({p['coverage_percent']}%)"))
+            
+            selected_choice = plane_selection_placeholder.selectbox(
+                "Target Wall Surface",
+                options=[c[0] for c in plane_choices],
+                format_func=lambda cid: next((c[1] for c in plane_choices if c[0] == cid), str(cid)),
+                index=0 if st.session_state.selected_wall_plane_id is None else next((i for i, c in enumerate(plane_choices) if c[0] == st.session_state.selected_wall_plane_id), 0)
+            )
+            if selected_choice != ("all" if st.session_state.selected_wall_plane_id is None else st.session_state.selected_wall_plane_id):
+                st.session_state.selected_wall_plane_id = None if selected_choice == "all" else selected_choice
+                st.rerun()
+
+            # Apply manual mask corrections if any
+            if st.session_state.manual_mask_adjustments:
+                from modules.wall_segmentation import apply_manual_corrections
+                wall_mask_arr = apply_manual_corrections(wall_mask_arr, st.session_state.manual_mask_adjustments)
+
+            # Perform high-accuracy recolouring
             recoloured_room = apply_luminance_preserving_recolour(
                 original_pil,
                 wall_mask_arr,
                 active_palette.primary_wall.rgb,
-                intensity=st.session_state.recolour_intensity
+                intensity=st.session_state.recolour_intensity,
+                strategy=st.session_state.recolour_strategy,
+                shading_retention=st.session_state.shading_retention
             )
 
+            # Quality Control verification stage
+            qc_report = validate_recolour_quality(
+                original_pil,
+                recoloured_room,
+                wall_mask_arr,
+                active_palette.primary_wall.rgb
+            )
+
+            # Segmentation & QC Diagnostics Header
+            qc_status_color = "#3A6946" if qc_report.passed else "#A85324"
+            qc_badge = "✅ Passed" if qc_report.passed else "⚠️ Flagged"
+            conf_badge = mask_meta.get("segmentation_confidence", "Moderate")
+
+            st.markdown(
+                f"""
+                <div style="display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
+                    <div class="custom-card" style="flex: 1; min-width: 200px; padding: 10px 14px; margin-bottom: 0;">
+                        <span style="font-size: 0.76rem; color: var(--text-secondary); text-transform: uppercase;">Segmentation Confidence</span><br>
+                        <strong style="color: var(--text-primary); font-size: 0.92rem;">{conf_badge}</strong>
+                        <span style="font-size: 0.80rem; color: var(--text-secondary);">({mask_meta.get('wall_coverage_percent', 0)}% coverage)</span>
+                    </div>
+                    <div class="custom-card" style="flex: 1; min-width: 200px; padding: 10px 14px; margin-bottom: 0;">
+                        <span style="font-size: 0.76rem; color: var(--text-secondary); text-transform: uppercase;">Quality Control</span><br>
+                        <strong style="color: {qc_status_color}; font-size: 0.92rem;">{qc_badge}</strong>
+                        <span style="font-size: 0.80rem; color: var(--text-secondary);">(Zero Bleed: Δout={qc_report.max_outside_pixel_delta})</span>
+                    </div>
+                    <div class="custom-card" style="flex: 1; min-width: 200px; padding: 10px 14px; margin-bottom: 0;">
+                        <span style="font-size: 0.76rem; color: var(--text-secondary); text-transform: uppercase;">Active Strategy</span><br>
+                        <strong style="color: var(--accent-primary); font-size: 0.92rem;">{st.session_state.recolour_strategy.replace('_', ' ').title()}</strong>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            # Segmentation warnings if any
+            if mask_meta.get("warnings"):
+                for w_msg in mask_meta["warnings"]:
+                    st.warning(f"⚠️ Segmentation Note: {w_msg}")
+
+            if qc_report.warnings:
+                for qc_warn in qc_report.warnings:
+                    st.info(f"ℹ️ Quality Control Diagnostic: {qc_warn}")
+
+            # Render comparison preview
             if preview_type == "Side-by-Side Comparison":
                 cmp_img = create_side_by_side_comparison(original_pil, recoloured_room, active_palette.primary_wall.name, active_palette.primary_wall.hex)
                 st.image(cmp_img, use_container_width=True)
@@ -711,6 +815,45 @@ elif st.session_state.current_view == "🖼️ Visualization Studio":
             else:
                 overlay_img = create_mask_overlay_preview(original_pil, wall_mask_arr)
                 st.image(overlay_img, use_container_width=True)
+
+            # Interactive Manual Mask Refinement Expander
+            with st.expander("✏️ Manual Mask Refinement & Brush Corrections", expanded=False):
+                st.caption("Manually add missed wall areas or erase furniture/trim from the mask.")
+                m_c1, m_c2, m_c3, m_c4 = st.columns(4)
+                w_orig, h_orig = original_pil.size
+                with m_c1:
+                    m_mode = st.selectbox("Action", ["include", "exclude"], format_func=lambda x: "Add to Wall (Include)" if x == "include" else "Erase Obstacle (Exclude)")
+                with m_c2:
+                    m_x = st.number_input("Target X Coordinate", 0, w_orig, w_orig // 2, 10)
+                with m_c3:
+                    m_y = st.number_input("Target Y Coordinate", 0, h_orig, h_orig // 3, 10)
+                with m_c4:
+                    m_rad = st.slider("Brush Radius (px)", 10, 150, 35, 5)
+
+                b_col1, b_col2 = st.columns(2)
+                with b_col1:
+                    if st.button("🖌️ Apply Brush Stroke", use_container_width=True):
+                        st.session_state.manual_mask_adjustments.append({
+                            "type": "brush",
+                            "mode": m_mode,
+                            "x": m_x,
+                            "y": m_y,
+                            "radius": m_rad
+                        })
+                        st.success(f"Added manual correction stroke at ({m_x}, {m_y}).")
+                        st.rerun()
+                with b_col2:
+                    if st.button("↺ Reset All Manual Adjustments", use_container_width=True):
+                        st.session_state.manual_mask_adjustments = []
+                        st.info("Manual adjustments cleared.")
+                        st.rerun()
+
+            # Technical painting disclaimer
+            st.caption(
+                "💡 **Architectural Paint Disclaimer:** Simulated colors reproduce perceptual appearance under existing ambient lighting. "
+                "Physical paint results in real spaces will vary according to primer coats, surface finish (matte, eggshell, satin), "
+                "incident window daylight, and monitor display calibration."
+            )
 
             # Download recoloured preview
             rec_buf = io.BytesIO()
