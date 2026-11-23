@@ -1,4 +1,5 @@
 """Authentication router: registration, login, logout, password recovery, and session profile."""
+import os
 from typing import Optional
 from pydantic import BaseModel, EmailStr
 from fastapi import APIRouter, Response, HTTPException, status, Depends
@@ -34,6 +35,18 @@ class ResetConfirmRequest(BaseModel):
     new_password: str
 
 
+def _get_cookie_security():
+    """Return (samesite, secure) based on deployment environment.
+    Cross-site HTTPS (e.g. Vercel -> Render) requires SameSite='none' and Secure=True.
+    """
+    is_prod = (
+        os.environ.get("RENDER") == "true"
+        or os.environ.get("ENVIRONMENT", "").lower() == "production"
+        or "onrender.com" in os.environ.get("RENDER_EXTERNAL_HOSTNAME", "")
+    )
+    return ("none", True) if is_prod else ("lax", False)
+
+
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(req: RegisterRequest, response: Response):
     success, msg, user_record = register_user(
@@ -47,13 +60,14 @@ def register(req: RegisterRequest, response: Response):
 
     # Set httpOnly JWT session cookie
     token = create_access_token(user_id=user_record["id"], email=user_record["email"])
+    samesite, secure = _get_cookie_security()
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
         max_age=JWT_EXPIRE_HOURS * 3600,
-        samesite="lax",
-        secure=False  # Set True in production over HTTPS
+        samesite=samesite,
+        secure=secure
     )
 
     return {
@@ -79,13 +93,14 @@ def login(req: LoginRequest, response: Response):
         raise HTTPException(status_code=status_code, detail=msg)
 
     token = create_access_token(user_id=user_record["id"], email=user_record["email"])
+    samesite, secure = _get_cookie_security()
     response.set_cookie(
         key="access_token",
         value=token,
         httponly=True,
         max_age=JWT_EXPIRE_HOURS * 3600,
-        samesite="lax",
-        secure=False
+        samesite=samesite,
+        secure=secure
     )
 
     return {
@@ -102,7 +117,8 @@ def login(req: LoginRequest, response: Response):
 
 @router.post("/logout")
 def logout(response: Response):
-    response.delete_cookie(key="access_token", httponly=True, samesite="lax")
+    samesite, secure = _get_cookie_security()
+    response.delete_cookie(key="access_token", httponly=True, samesite=samesite, secure=secure)
     return {"status": "success", "message": "Successfully signed out."}
 
 

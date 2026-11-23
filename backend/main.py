@@ -44,7 +44,7 @@ app = FastAPI(
 # Explicit origins required because allow_credentials=True forbids wildcard "*".
 raw_origins = os.environ.get(
     "CORS_ORIGINS",
-    "http://localhost:3000,http://127.0.0.1:3000"
+    "http://localhost:3000,http://127.0.0.1:3000,https://chroma-studio-theta.vercel.app"
 )
 ALLOWED_ORIGINS = [o.strip() for o in raw_origins.split(",") if o.strip()]
 

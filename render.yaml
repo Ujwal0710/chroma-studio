@@ -13,7 +13,7 @@ services:
       - key: PYTHONPATH
         value: .
       - key: CORS_ORIGINS
-        value: "http://localhost:3000,http://127.0.0.1:3000"
+        value: "http://localhost:3000,http://127.0.0.1:3000,https://chroma-studio-theta.vercel.app"
       - key: APP_NAME
         value: "CHROMA STUDIO AI"
       - key: APP_TAGLINE
