@@ -55,10 +55,7 @@ export function AccountModal({ isOpen, onClose, currentUser, setCurrentUser }: A
   const [subscription, setSubscription] = useState<any>(null);
   const [usage, setUsage] = useState<any>(null);
 
-  const currentUserId = currentUser?.id;
-
   const fetchSubscriptionDetails = useCallback(async () => {
-    if (!currentUserId) return;
     try {
       const data = await api.getCurrentSubscription();
       if (data && data.subscription) {
@@ -68,13 +65,13 @@ export function AccountModal({ isOpen, onClose, currentUser, setCurrentUser }: A
     } catch (e) {
       console.warn("Failed to fetch fresh subscription details:", e);
     }
-  }, [currentUserId]);
+  }, []);
 
   useEffect(() => {
-    if (currentUserId && isOpen) {
+    if (currentUser?.id && isOpen) {
       setTab("profile");
       fetchSubscriptionDetails();
-    } else if (!currentUserId) {
+    } else if (!currentUser?.id) {
       setTab("login");
       setSubscription(null);
       setUsage(null);
@@ -82,7 +79,7 @@ export function AccountModal({ isOpen, onClose, currentUser, setCurrentUser }: A
     setErrorMsg(null);
     setSuccessMsg(null);
     setInfoMsg(null);
-  }, [currentUserId, isOpen, fetchSubscriptionDetails]);
+  }, [currentUser?.id, isOpen, fetchSubscriptionDetails]);
 
   if (!isOpen) return null;
 
