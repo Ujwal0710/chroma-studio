@@ -1,12 +1,11 @@
 """Authentication, password security, session handling, and access control."""
-import os
 import hmac
 import hashlib
 import secrets
 import datetime
 from typing import Optional, Tuple, Dict, Any
 
-from config.settings import AUTH_SECRET_KEY, MAX_LOGIN_ATTEMPTS, LOCKOUT_MINUTES, DB_PATH
+from config.settings import MAX_LOGIN_ATTEMPTS, LOCKOUT_MINUTES, DB_PATH
 from modules.storage import (
     get_user_by_email,
     get_user_by_id,

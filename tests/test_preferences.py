@@ -1,9 +1,5 @@
 """Tests for user preference controls, avoid colors penalty, and accent intensities."""
-from PIL import Image
-import numpy as np
-
 from models.schemas import PreferenceSettings
-from modules.colour_extraction import extract_dominant_colors
 from modules.palette_engine import generate_recommended_palettes
 from tests.test_palette_engine import get_mock_extracted, get_mock_room_analysis
 

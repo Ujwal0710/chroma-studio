@@ -1,10 +1,8 @@
 """Semantic Wall Editing: Multi-surface plane segmentation and targeted recolouring."""
-from typing import Dict, Any, Tuple
+from typing import Dict, Tuple
 from PIL import Image
 import numpy as np
-import cv2
 
-from modules.wall_segmentation import generate_wall_mask
 from modules.room_visualization import apply_luminance_preserving_recolour
 
 

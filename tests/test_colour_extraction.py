@@ -5,12 +5,9 @@ from modules.image_processing import (
     rgb_to_hex,
     hex_to_rgb,
     calculate_perceptual_luminance,
-    rgb_to_hsv,
-    hsv_to_rgb,
-    rgb_to_cielab,
     classify_color_characteristics
 )
-from modules.colour_extraction import extract_dominant_colors, match_color_name
+from modules.colour_extraction import extract_dominant_colors
 
 
 def test_hex_and_rgb_conversions():
@@ -90,3 +87,47 @@ def test_dominant_colors_extraction_from_known_image():
     assert extracted.overall_brightness > 0.40
     assert extracted.neutral_count >= 1 or extracted.warm_count >= 1
     assert "white balance" in extracted.analysis_disclaimer.lower()
+
+
+def test_cielab_kmeans_exact_100_percent_sum():
+    """Verify that CIELAB K-Means dominant color percentages sum to exactly 100.0%."""
+    # Test on random RGB image
+    rng = np.random.RandomState(42)
+    random_pixels = rng.randint(20, 240, size=(120, 120, 3), dtype=np.uint8)
+    img = Image.fromarray(random_pixels)
+
+    for k in [3, 5, 7]:
+        extracted = extract_dominant_colors(img, num_colors=k, filter_extremes=False)
+        total_pct = sum(s.percentage for s in extracted.dominant_colors)
+        assert round(total_pct, 1) == 100.0, f"Expected 100.0%, got {total_pct}% for k={k}"
+        for s in extracted.dominant_colors:
+            assert s.hex.startswith("#")
+            assert len(s.hex) == 7
+            for val in s.rgb:
+                assert 0 <= val <= 255
+
+
+def test_typology_not_detected_when_unspecified():
+    """Verify that room typology does not silently default to Living Room."""
+    from services.vision_provider import generate_local_rule_based_analysis
+    img = Image.new("RGB", (100, 100), (220, 200, 180))
+    extracted = extract_dominant_colors(img, num_colors=3)
+    result = generate_local_rule_based_analysis(extracted, selected_room_type="Automatic Detection")
+    assert "Not detected" in result.detected_room_type
+    assert "Inferred default interior" not in result.detected_room_type
+
+
+def test_dark_mode_and_no_sidebar_architecture():
+    """Verify .streamlit/config.toml dark-only configuration and absence of st.sidebar in app.py."""
+    import pathlib
+    config_path = pathlib.Path(".streamlit/config.toml")
+    assert config_path.exists(), ".streamlit/config.toml must exist"
+    config_text = config_path.read_text(encoding="utf-8")
+    assert 'base = "dark"' in config_text
+    assert "#121411" in config_text
+
+    app_text = pathlib.Path("app.py").read_text(encoding="utf-8")
+    assert "with st.sidebar:" not in app_text, "st.sidebar must be removed from app.py"
+    assert 'initial_sidebar_state="collapsed"' in app_text
+    assert "st.tabs([" in app_text
+

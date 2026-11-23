@@ -1,5 +1,4 @@
 """Daylight Simulator: Physically inspired natural lighting conditions preview."""
-from typing import Tuple
 from PIL import Image
 import numpy as np
 

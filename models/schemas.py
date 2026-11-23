@@ -35,9 +35,14 @@ class PaletteConcept(BaseModel):
     furniture_flooring_compatibility: str
     heuristic_score: float = 0.0
     score_breakdown: Dict[str, float] = Field(default_factory=dict)
+    colors: List[ColorSwatch] = Field(default_factory=list)
+
+    def model_post_init(self, __context: Any) -> None:
+        if not self.colors and hasattr(self, "primary_wall") and hasattr(self, "secondary_wall") and hasattr(self, "accent") and hasattr(self, "trim"):
+            self.colors = [self.primary_wall, self.secondary_wall, self.accent, self.trim]
 
     def all_colors(self) -> List[ColorSwatch]:
-        return [self.primary_wall, self.secondary_wall, self.accent, self.trim]
+        return self.colors if self.colors else [self.primary_wall, self.secondary_wall, self.accent, self.trim]
 
 
 class ExtractedColorAnalysis(BaseModel):
@@ -48,7 +53,7 @@ class ExtractedColorAnalysis(BaseModel):
     neutral_count: int
     warm_count: int
     cool_count: int
-    lighting_condition_estimate: str
+    lighting_condition_estimate: str = "Neutral Balanced Lighting"
     analysis_disclaimer: str = (
         "Note: Inherent camera white balance, exposure, reflections, artificial lighting, "
         "and compression artifacts can shift observed colour measurements from physical paint pigments."
@@ -185,8 +190,10 @@ class PaintEstimateInput(BaseModel):
     num_doors: int = 1
     num_windows: int = 2
     coats: int = 2
+    num_coats: Optional[int] = None  # alias for coats
     coverage_sqm_per_liter: float = 12.0  # Standard interior emulsion coverage
     cost_per_liter_inr: Optional[float] = 450.0  # Optional user-supplied rate
+    total_wall_area_sqft: Optional[float] = None  # Optional direct sq ft input
 
 
 class PaintEstimateResult(BaseModel):
@@ -201,4 +208,12 @@ class PaintEstimateResult(BaseModel):
         "Note: Rule-based architectural approximation. Real coverage varies by physical wall texture, "
         "primer quality, porosity, and application method. Always check manufacturer specifications before purchasing."
     )
+
+    @property
+    def total_litres_needed(self) -> float:
+        return self.paint_liters_required
+
+    @property
+    def recommended_cans_one_litre(self) -> int:
+        return self.recommended_cans_breakdown.get("1-Litre Cans", 0)
 

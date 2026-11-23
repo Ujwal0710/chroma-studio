@@ -1,7 +1,5 @@
 """Preference options, presets, and validation logic."""
-from typing import Dict, Any, List
 from models.schemas import PreferenceSettings
-from config.settings import ROOM_TYPES, INTERIOR_STYLES
 
 
 ATMOSPHERE_OPTIONS = [

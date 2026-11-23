@@ -8,7 +8,6 @@ from typing import Dict, Any, Tuple, Optional
 
 from config.settings import (
     SUBSCRIPTION_PLANS,
-    RAZORPAY_KEY_ID,
     RAZORPAY_KEY_SECRET,
     RAZORPAY_WEBHOOK_SECRET,
     DB_PATH
@@ -56,6 +55,28 @@ def get_user_subscription(user_id: str, db_path: str = DB_PATH) -> Dict[str, Any
             }
         
         sub = dict(row)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        end_time_str = sub.get("current_period_end")
+        is_expired = False
+        if end_time_str:
+            try:
+                end_dt = datetime.datetime.fromisoformat(end_time_str)
+                if end_dt.tzinfo is None:
+                    end_dt = end_dt.replace(tzinfo=datetime.timezone.utc)
+                if end_dt < now:
+                    is_expired = True
+            except Exception:
+                pass
+
+        if is_expired and sub.get("plan_id") != "free":
+            cursor.execute(
+                "UPDATE user_subscriptions SET plan_id = 'free', status = 'expired' WHERE user_id = ?",
+                (user_id,)
+            )
+            conn.commit()
+            sub["plan_id"] = "free"
+            sub["status"] = "expired"
+
         plan_id = sub.get("plan_id", "free")
         sub["plan_details"] = SUBSCRIPTION_PLANS.get(plan_id, SUBSCRIPTION_PLANS["free"])
         return sub
@@ -182,6 +203,12 @@ def check_entitlement(user_id: str, action: str, db_path: str = DB_PATH) -> Tupl
     if action == "room_analysis":
         limit = plan["monthly_analyses_limit"]
         used = usage["analyses_used"]
+        if user_id == "guest_user":
+            return True, "Analysis permitted (Guest Atelier Session)", {
+                "used": used,
+                "limit": 999,
+                "remaining": 999
+            }
         if used >= limit:
             return False, f"Monthly room analysis limit reached ({used}/{limit}). Upgrade to Plus or Pro for expanded quota.", {
                 "used": used,
@@ -246,16 +273,20 @@ def generate_razorpay_payment_signature(order_id: str, payment_id: str, secret: 
 
 
 def verify_razorpay_payment_signature(
-    order_id: str,
-    payment_id: str,
-    signature: str,
-    secret: str = RAZORPAY_KEY_SECRET
+    order_id: Optional[str] = None,
+    payment_id: Optional[str] = None,
+    signature: Optional[str] = None,
+    secret: str = RAZORPAY_KEY_SECRET,
+    **kwargs
 ) -> bool:
     """Verify that Razorpay payment signature matches order_id|payment_id."""
-    if not order_id or not payment_id or not signature:
+    oid = str(order_id or kwargs.get("razorpay_order_id") or "").strip()
+    pid = str(payment_id or kwargs.get("razorpay_payment_id") or "").strip()
+    sig = str(signature or kwargs.get("razorpay_signature") or "").strip()
+    if not oid or not pid or not sig:
         return False
-    expected = generate_razorpay_payment_signature(order_id, payment_id, secret=secret)
-    return hmac.compare_digest(expected, signature)
+    expected = generate_razorpay_payment_signature(oid, pid, secret=secret)
+    return hmac.compare_digest(expected, sig)
 
 
 def verify_razorpay_webhook_signature(

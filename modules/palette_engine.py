@@ -1,6 +1,5 @@
 """Deterministic colour palette recommendation engine with heuristic ranking and duplicate removal."""
 import uuid
-import math
 from typing import List, Dict, Tuple, Optional
 from models.schemas import (
     PaletteConcept,
@@ -13,7 +12,6 @@ from modules.image_processing import (
     rgb_to_hex,
     rgb_to_hsv,
     hsv_to_rgb,
-    rgb_to_cielab,
     calculate_perceptual_luminance,
     classify_color_characteristics
 )
@@ -24,7 +22,6 @@ from modules.colour_theory import (
     generate_complementary_harmony,
     generate_neutral_accent_harmony,
     calculate_color_distance_lab,
-    calculate_palette_distance,
     calculate_contrast_ratio
 )
 
@@ -58,11 +55,20 @@ def build_swatch(
     traits = classify_color_characteristics(r, g, b)
     lum = round(calculate_perceptual_luminance(r, g, b), 3)
 
+    pct = None
+    if "60%" in role:
+        pct = 60.0
+    elif "30%" in role:
+        pct = 30.0
+    elif "10%" in role:
+        pct = 10.0
+
     return ColorSwatch(
         hex=hex_code,
         rgb=(r, g, b),
         role=role,
         name=name,
+        percentage=pct,
         temperature=traits["temperature"],
         saturation_category=traits["saturation"],
         luminance=lum,

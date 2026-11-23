@@ -1,9 +1,8 @@
 """Colour Harmony Explorer: Computational harmony relationships, wheel shifts, and CIELAB distance."""
 import colorsys
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, Tuple
 from modules.image_processing import rgb_to_cielab, calculate_cielab_delta_e
 from modules.colour_extraction import get_closest_interior_color_name
-from models.schemas import ColorSwatch, PaletteConcept
 
 
 def hex_to_rgb(hex_code: str) -> Tuple[int, int, int]:

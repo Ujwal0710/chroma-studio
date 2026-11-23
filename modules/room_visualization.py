@@ -11,19 +11,15 @@ Features:
 5. Inner-feathering to eliminate jagged seams without spilling outside the mask.
 6. Side-by-side, split-slider, and mask overlay visual comparison utilities.
 """
-from typing import Tuple, Dict, Any, Optional, Literal
+from typing import Tuple
 import numpy as np
-from PIL import Image, ImageFilter, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 import cv2
-from scipy import ndimage
 
 from modules.image_processing import (
     pil_to_numpy_rgb,
-    numpy_rgb_to_pil,
-    rgb_to_cielab,
-    calculate_perceptual_luminance
+    numpy_rgb_to_pil
 )
-from modules.quality_control import validate_recolour_quality, QualityControlReport
 
 
 LUMINANCE_STRATEGIES = {

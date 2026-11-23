@@ -4,8 +4,7 @@ import pytest
 from PIL import Image
 from modules.image_validation import (
     validate_image_bytes,
-    ImageValidationError,
-    get_image_metadata
+    ImageValidationError
 )
 
 

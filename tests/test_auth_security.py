@@ -9,8 +9,7 @@ from modules.auth import (
     register_user,
     authenticate_user,
     initiate_password_reset,
-    complete_password_reset,
-    change_user_password
+    complete_password_reset
 )
 from modules.storage import init_db
 

@@ -1,7 +1,7 @@
 """Image upload handling, state caching, and cleanup."""
-from typing import Optional, Tuple, Dict, Any
+from typing import Tuple, Dict, Any
 from PIL import Image
-from modules.image_validation import validate_image_bytes, ImageValidationError
+from modules.image_validation import validate_image_bytes
 
 
 def process_uploaded_file(

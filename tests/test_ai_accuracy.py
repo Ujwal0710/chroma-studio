@@ -10,15 +10,14 @@ Verifies:
 7. Preference sensitivity and palette distinctiveness (Delta E >= 12.0).
 8. Full end-to-end upload -> extraction -> analysis -> palette -> recolouring workflow.
 """
-import io
+from typing import Tuple
 import numpy as np
 from PIL import Image, ImageDraw
-import pytest
 
-from modules.image_processing import pil_to_numpy_rgb, calculate_perceptual_luminance
+from modules.image_processing import pil_to_numpy_rgb
 from modules.wall_segmentation import generate_wall_mask, apply_manual_corrections
-from modules.room_visualization import apply_luminance_preserving_recolour, LUMINANCE_STRATEGIES
-from modules.quality_control import validate_recolour_quality, QualityControlReport
+from modules.room_visualization import apply_luminance_preserving_recolour
+from modules.quality_control import validate_recolour_quality
 from modules.colour_extraction import extract_dominant_colors
 from modules.room_analysis import analyze_room_photograph
 from modules.palette_engine import generate_recommended_palettes
@@ -128,8 +127,7 @@ def test_scenario_2_window_glare_exclusion():
     img, win_box = create_window_room()
     mask, meta = generate_wall_mask(img, sensitivity=0.55, upper_bias=0.70)
 
-    # Inner window glass (x=70, y=50) should be excluded
-    win_center_y, win_center_x = (win_box[1] + win_box[3]) // 2, (win_box[0] + win_box[2]) // 2
+    # Inner window glass should be excluded
     # Check that majority of window pane is not painted
     win_pane_pixels = mask[win_box[1]+5:win_box[3]-5, win_box[0]+5:win_box[2]-5]
     assert np.mean(win_pane_pixels > 0) < 0.25, "Window glass was incorrectly included in wall mask!"

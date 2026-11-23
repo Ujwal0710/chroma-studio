@@ -1,53 +1,83 @@
 # CHROMA STUDIO AI 🎨
-### Futuristic Premium Edition — Intelligent Architectural Colour & Interior Design Workspace
+### Modern Next.js Website + FastAPI Backend & Architectural Colour Intelligence
 
-**CHROMA STUDIO AI** is an architectural-grade, computer-vision and AI-powered interior colour intelligence system. The application transforms uploaded room photographs into personalized colour concepts, visual simulations, and actionable design specifications while enforcing the 60-30-10 interior rule and perceptual color science.
+**CHROMA STUDIO AI** is a production-grade, computer-vision and AI-powered interior colour intelligence platform. It features a modern **Next.js (App Router, TypeScript, Tailwind CSS)** web frontend paired with a high-performance **FastAPI** backend that exposes deterministic CIELAB colour science, zero-bleed optical wall segmentation, photorealistic luminance-preserving paint simulation, and 60-30-10 harmonic balancing.
 
----
-
-## 🏛️ Distinctive Premium Features
-
-1. **Chroma Memory (Adaptive Personalization Engine):**
-   - Automatically learns user style tendencies based on favorited palettes and rejected tones.
-   - Adjusts subsequent recommendation rankings using an inspectable score modifier.
-   - History can be viewed and cleared at any time.
-
-2. **Chroma DNA (Personal Design Signature):**
-   - Deterministic design signature derivation reflecting dominant color families, contrast tendencies, temperature bias, and material affinities.
-   - Renders a 4-swatch signature strip that can be applied to new room spaces.
-
-3. **Design Timeline (Visual Versioning & Rollback):**
-   - Saves immutable design iteration snapshots with version numbers, timestamps, notes, and thumbnails.
-   - Revisit historical project states without losing iteration progress.
-
-4. **Colour Harmony Explorer:**
-   - 360° chromatic relationships: Complementary (+180°), Analogous (-30°, +30°), Triadic (+120°, +240°), Monochromatic tints and shades, and Neutral Supporting Greiges.
-   - Exact CIELAB perceptual distance calculations ($\Delta E$).
-
-5. **Daylight Simulator:**
-   - Visual simulation of 4 diurnal lighting conditions: *Warm Morning Light* (3200K), *Neutral Daylight* (5500K), *Cool Overcast Daylight* (6800K), and *Warm Evening Light* (2700K).
-   - Preserves luminance distribution while shifting spectral color balance.
-
-6. **Material-Aware Palettes Engine:**
-   - Evaluates compatibility against 9 architectural materials: *Oak Wood, Walnut Wood, Carrara Marble, Cast Concrete, Natural Stone, Brushed Brass, Black Matte Metal, Natural Linen, and Velvet*.
-   - Explains undertone synergies and potential clashes.
-
-7. **Colour Swap Playground:**
-   - Interactively swap any single slot (e.g. Accent or Primary Wall) while keeping other anchors locked.
-   - Updates palettes and preview renderings instantly.
-
-8. **Smart Paint Quantity Estimator:**
-   - Calculates net wall surface from room length, width, and wall height.
-   - Deducts standard doorways (1.89 m²) and window openings (1.44 m²).
-   - Computes required litres (with 10% safety margin), recommends packaging can breakdown (10L, 4L, 1L), and estimates cost at user-supplied INR rates.
-
-9. **Semantic Wall Editing:**
-   - Multi-plane region isolation: *Main Wall, Accent Wall, Ceiling / Upper Crown, and All Wall Surfaces*.
-   - Targeted recolouring preserves ambient room lighting and shadows.
+The legacy Streamlit application (`app.py`) is also preserved in full for standalone local prototyping.
 
 ---
 
-## 🔒 Security & Authentication Architecture
+## ⚡ Quick Start: Running the Application
+
+### 1. Backend (FastAPI on `http://localhost:8000`)
+```bash
+# From repository root
+python -m uvicorn backend.main:app --reload --port 8000
+```
+- Interactive Swagger documentation: [http://localhost:8000/docs](http://localhost:8000/docs)
+- Interactive Redoc documentation: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- Health check: [http://localhost:8000/health](http://localhost:8000/health)
+
+### 2. Frontend (Next.js on `http://localhost:3000`)
+```bash
+# Navigate to frontend folder
+cd frontend
+npm run dev
+```
+- Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### 3. Legacy Streamlit App (Optional reference on `http://localhost:8501`)
+```bash
+python -m streamlit run app.py
+```
+
+---
+
+## 🏗️ Architecture & Technology Stack
+
+| Layer | Technologies & Libraries |
+| :--- | :--- |
+| **Frontend** | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS v4, Framer Motion, Lucide Icons |
+| **Backend API** | FastAPI, Uvicorn, Starlette, PyJWT, Pydantic v2 schemas |
+| **Computer Vision & Colour Science** | OpenCV (cv2), Pillow (PIL), NumPy, SciPy, CIELAB colour spaces, $\Delta E_{2000}$ metrics |
+| **Data & Storage** | SQLite, PBKDF2-HMAC-SHA256 password security, constant-time token verification, GDPR data controls |
+| **Design System** | Dark-only architectural palette: Obsidian (`#121411`), Smoked Charcoal (`#1B1E19`), Warm Ivory (`#F4F1EA`), Terracotta Amber (`#B85C38`) |
+
+---
+
+## 🔌 API Endpoints Map
+
+All endpoints execute deterministic Python logic (no mock stubs or placeholder buttons):
+
+- `POST /auth/register` — Creates user account with PBKDF2 password hashing. Sets httpOnly JWT cookie.
+- `POST /auth/login` — Authenticates user, enforces brute-force protection, issues httpOnly session JWT.
+- `POST /auth/logout` — Revokes session cookie.
+- `POST /auth/reset-request` — Initiates secure time-limited password recovery.
+- `POST /auth/reset-confirm` — Consumes reset token and commits new password hash.
+- `GET /auth/me` — Returns current authenticated user and session validity.
+- `POST /rooms/analyse` — EXIF-aware sanitization, dominant tone extraction, room typology, and lighting metrics.
+- `GET /rooms/sample` — Delivers pre-bundled high-res architectural sample room for 1-click test workflows.
+- `POST /rooms/segment` — Zero-bleed photometric edge detection isolating walls from trim and furniture.
+- `POST /rooms/recolour` — Luminance-preserving paint simulation (`cielab_perceptual`, `adaptive_luminance`, `architectural_glaze`).
+- `POST /palettes/generate` — Computes 4 harmonic design concepts adhering to the 60-30-10 ratio.
+- `POST /palettes/swap` — Interactively swaps color roles (Dominant, Secondary, Accent) with lock retention.
+- `POST /daylight/simulate` — Simulates Planckian chromatic adaptation across 4 Kelvins (3200K, 5500K, 6800K, 2700K).
+- `POST /materials/score` — Evaluates affinity against 9 physical architectural substrates (Oak, Walnut, Linen, Brass, Concrete, etc.).
+- `POST /estimator/calculate` — Precision paint volume and packaging optimization (1L, 4L, 10L, 20L) with INR rates.
+- `GET /timeline`, `POST /timeline`, `POST /timeline/rollback` — Reversible design milestones with snapshot rollback.
+- `POST /memory/favourite`, `POST /memory/reject` — Updates user taste memory and score heuristics.
+- `GET /dna` — Computes deterministic Chroma DNA signature swatches and temperature tendencies.
+- `GET /plans`, `POST /billing/order`, `POST /billing/verify` — Subscription tier checks and simulated Razorpay payments.
+- `GET /account/data`, `DELETE /account/data` — Full GDPR data portability export and permanent erasure.
+
+---
+
+## 🧪 Testing & Verification
+
+Run the complete test suite (90 passing tests covering Computer Vision, API endpoints, Auth, Estimator, and Harmonization):
+```bash
+python -m pytest -v
+```
 
 - **Salted PBKDF2-HMAC-SHA256 Password Hashing:** 100,000 iterations with cryptographically random salts.
 - **Brute-Force Rate Limiting:** Automatic temporary lockout after 5 consecutive failed login attempts within 15 minutes.

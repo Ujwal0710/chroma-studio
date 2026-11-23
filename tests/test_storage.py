@@ -10,15 +10,15 @@ from modules.storage import (
     save_palette,
     list_saved_palettes,
     get_saved_palette_by_id,
-    delete_saved_palette,
-    save_user_preferences_preset,
-    list_saved_preferences_presets
+    delete_saved_palette
 )
 from modules.export_service import (
     export_palette_json,
     export_palette_csv,
     generate_swatch_sheet_png,
-    generate_text_report
+    generate_text_report,
+    generate_markdown_report,
+    generate_pdf_report
 )
 
 
@@ -162,3 +162,19 @@ def test_swatch_sheet_and_report_exports():
     assert "AI INTERIOR COLOUR PALETTE CONSULTATION REPORT" in report
     assert "#EAD8C2" in report
     assert "Warm and peaceful" in report
+
+    # Test report with None room_analysis (safe fallback verification)
+    fallback_report = generate_text_report(pal, None, None, room_type="Master Suite")
+    assert "AI INTERIOR COLOUR PALETTE CONSULTATION REPORT" in fallback_report
+    assert "Master Suite" in fallback_report
+
+    # Markdown report
+    md_report = generate_markdown_report(pal, room_analysis, extracted, room_type="Bedroom")
+    assert "# CHROMA STUDIO AI — Architectural Consultation Report" in md_report
+    assert "| **60%** | Primary Wall" in md_report
+    assert pal.name in md_report
+
+    # PDF report
+    pdf_buf = generate_pdf_report(pal, room_analysis, extracted, room_type="Bedroom")
+    assert pdf_buf.getvalue().startswith(b"%PDF")
+    assert len(pdf_buf.getvalue()) > 10000

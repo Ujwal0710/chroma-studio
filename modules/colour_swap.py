@@ -1,5 +1,5 @@
 """Colour Swap Playground: Interactive single-colour modification with locked anchors."""
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional
 from models.schemas import PaletteConcept, ColorSwatch
 from modules.colour_extraction import get_closest_interior_color_name
 from modules.image_processing import rgb_to_cielab, calculate_cielab_delta_e

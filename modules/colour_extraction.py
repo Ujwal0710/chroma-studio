@@ -1,9 +1,10 @@
 """Dominant colour extraction using K-Means clustering and perceptual classification."""
 import math
-from typing import List, Dict, Any, Tuple
+from typing import List, Any
+import cv2
 import numpy as np
 from PIL import Image
-from sklearn.cluster import MiniBatchKMeans, KMeans
+from sklearn.cluster import MiniBatchKMeans
 
 from models.schemas import ColorSwatch, ExtractedColorAnalysis
 from modules.image_processing import (
@@ -11,6 +12,7 @@ from modules.image_processing import (
     rgb_to_hex,
     rgb_to_hsv,
     rgb_to_cielab,
+    cielab_to_rgb,
     calculate_perceptual_luminance,
     classify_color_characteristics,
     analyze_image_lighting_and_atmosphere
@@ -131,15 +133,19 @@ def extract_dominant_colors(
     else:
         sample_pixels = pixels
 
-    # Run MiniBatchKMeans for speed and reliability
+    # Convert sample pixels to CIE L*a*b* space for perceptually uniform clustering
+    sample_rgb_norm = np.ascontiguousarray((sample_pixels / 255.0).reshape(1, -1, 3), dtype=np.float32)
+    sample_lab = cv2.cvtColor(sample_rgb_norm, cv2.COLOR_RGB2Lab).reshape(-1, 3)
+
+    # Run MiniBatchKMeans in CIELAB space with fixed seed
     kmeans = MiniBatchKMeans(
         n_clusters=num_colors,
         random_state=42,
         batch_size=2048,
         n_init=3
     )
-    labels = kmeans.fit_predict(sample_pixels)
-    centers = kmeans.cluster_centers_
+    labels = kmeans.fit_predict(sample_lab)
+    centers_lab = kmeans.cluster_centers_
 
     # Calculate cluster frequencies
     counts = np.bincount(labels, minlength=num_colors)
@@ -148,20 +154,24 @@ def extract_dominant_colors(
     # Sort clusters by proportion descending
     sorted_order = np.argsort(proportions)[::-1]
 
+    # Calculate exact percentages summing to 100.0%
+    raw_props = [float(proportions[idx]) * 100.0 for idx in sorted_order]
+    rounded_props = [round(p, 1) for p in raw_props]
+    diff = round(100.0 - sum(rounded_props), 1)
+    if diff != 0 and len(rounded_props) > 0:
+        rounded_props[0] = round(rounded_props[0] + diff, 1)
+
     swatches: List[ColorSwatch] = []
     neutral_count = 0
     warm_count = 0
     cool_count = 0
     saturations: List[float] = []
 
-    for rank, idx in enumerate(sorted_order):
-        center_rgb = centers[idx]
-        r = int(np.clip(round(center_rgb[0]), 0, 255))
-        g = int(np.clip(round(center_rgb[1]), 0, 255))
-        b = int(np.clip(round(center_rgb[2]), 0, 255))
+    for rank, (idx, prop) in enumerate(zip(sorted_order, rounded_props)):
+        lab_c = centers_lab[idx]
+        r, g, b = cielab_to_rgb(float(lab_c[0]), float(lab_c[1]), float(lab_c[2]))
 
         hex_code = rgb_to_hex(r, g, b)
-        prop = round(float(proportions[idx]) * 100.0, 1)
 
         # Characteristics
         traits = classify_color_characteristics(r, g, b)

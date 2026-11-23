@@ -1,5 +1,4 @@
 """Tests for palette recommendation engine, preferences responsiveness, and duplicate elimination."""
-from typing import List
 from PIL import Image
 import numpy as np
 

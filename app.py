@@ -3,10 +3,8 @@
 Futuristic Premium Edition.
 """
 import io
-import os
-import hashlib
 import json
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, Tuple
 from PIL import Image
 import numpy as np
 import streamlit as st
@@ -48,7 +46,6 @@ from models.schemas import (
     ExtractedColorAnalysis,
     PreferenceSettings,
     ColorSwatch,
-    UserProfile,
     PaintEstimateInput
 )
 
@@ -85,7 +82,7 @@ except ImportError:
             "architectural_glaze": "Direct Glaze / Tint (Subtle translucent finish)"
         }
     )
-from modules.quality_control import validate_recolour_quality, QualityControlReport
+from modules.quality_control import validate_recolour_quality
 try:
     from modules.ai_preview import (
         request_ai_enhanced_preview,
@@ -103,26 +100,39 @@ from modules.storage import (
     save_palette,
     list_saved_palettes,
     delete_saved_palette,
-    get_saved_palette_by_id,
-    save_user_preferences_preset,
     get_user_profile,
     update_user_profile,
     delete_user_account_cascade,
-    export_user_data_bundle
+    export_user_data_bundle,
+    save_scanned_color,
+    list_scanned_colors,
+    delete_scanned_color,
+    save_room_plan,
+    list_room_plans,
+    delete_room_plan,
+    save_shopping_list,
+    list_shopping_lists,
+    delete_shopping_list,
+    save_maintenance_record,
+    list_maintenance_records,
+    delete_maintenance_record,
+    save_assistant_message,
+    get_assistant_history,
+    clear_assistant_history
 )
 from modules.export_service import (
     export_palette_json,
     export_palette_csv,
     generate_swatch_sheet_png,
-    generate_text_report
+    generate_text_report,
+    generate_markdown_report,
+    generate_pdf_report
 )
 from modules.preferences import (
     ATMOSPHERE_OPTIONS,
     TEMPERATURE_OPTIONS,
     LIGHTNESS_OPTIONS,
-    COLORFULNESS_OPTIONS,
     ACCENT_INTENSITY_OPTIONS,
-    BUDGET_OPTIONS,
     COMMON_ACCENT_HUES
 )
 from modules.auth import (
@@ -134,26 +144,22 @@ from modules.auth import (
 )
 from modules.subscription_service import (
     get_user_subscription,
-    update_user_subscription,
     check_entitlement,
     record_usage_metric,
     get_user_usage,
     execute_test_sandbox_checkout,
-    verify_razorpay_webhook_signature,
     process_payment_webhook
 )
 from modules.chroma_memory import (
     get_chroma_memory,
     record_favorite_palette,
-    record_rejected_palette,
     clear_chroma_memory,
     evaluate_chroma_memory_influence
 )
 from modules.chroma_dna import generate_chroma_dna
 from modules.design_timeline import (
     save_timeline_version,
-    list_project_timeline,
-    get_timeline_version
+    list_project_timeline
 )
 from modules.harmony_explorer import explore_color_harmonies
 from modules.daylight_simulator import simulate_daylight_lighting, LIGHTING_CONDITIONS
@@ -162,6 +168,39 @@ from modules.colour_swap import swap_palette_color
 from modules.paint_estimator import estimate_paint_quantity
 from modules.semantic_wall import generate_semantic_surface_masks, recolour_semantic_surface
 
+# Expansion Modules
+from modules.live_camera import (
+    ThreadSafeFrameHolder,
+    is_webrtc_available
+)
+from modules.live_intelligence import (
+    analyze_live_frame_intelligence,
+    draw_intelligence_bounding_boxes
+)
+from modules.live_colour_scanner import (
+    scan_color_at_reticle,
+    scan_frame_dominant_palette,
+    draw_reticle_crosshair
+)
+from modules.paint_brand_matcher import (
+    match_paint_brand_shades,
+    get_available_brands
+)
+from modules.room_planner import (
+    check_room_clearances,
+    get_furniture_suggestions
+)
+from modules.shopping_assistant import (
+    generate_renovation_shopping_list,
+    export_shopping_list_markdown
+)
+from modules.home_maintenance import (
+    evaluate_wall_damage_heuristics,
+    create_condition_comparison_image,
+    DAMAGE_CATEGORIES
+)
+from modules.chroma_assistant import generate_assistant_response
+
 # UI & Styling
 from ui.styles import get_theme_css
 from ui.components import (
@@ -169,15 +208,18 @@ from ui.components import (
     render_dominant_color_strip,
     render_room_analysis_card,
     render_palette_swatches_horizontal,
-    render_explainability_card
+    render_explainability_card,
+    render_privacy_shield_banner,
+    render_paint_brand_match_card,
+    render_3d_room_preview_card
 )
 
 # Page configuration
 st.set_page_config(
-    page_title=f"{APP_NAME} — Futuristic Premium Edition",
+    page_title=f"{APP_NAME} — Editorial Architectural 3D Edition",
     page_icon="🎨",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # Initialize database schema
@@ -192,7 +234,7 @@ if "current_user" not in st.session_state:
 if "current_view" not in st.session_state:
     st.session_state.current_view = "🎨 Studio & Analysis"
 if "theme" not in st.session_state:
-    st.session_state.theme = "light"
+    st.session_state.theme = "dark"
 if "current_image_bytes" not in st.session_state:
     st.session_state.current_image_bytes = None
 if "image_metadata" not in st.session_state:
@@ -296,107 +338,21 @@ render_header(
 # ----------------------------------------------------
 # Responsive Sidebar Navigation
 # ----------------------------------------------------
-with st.sidebar:
-    st.markdown(f"### 🏛️ {APP_NAME}")
-    
-    nav_options = [
-        "🏛️ Showcase / Landing",
-        "🎨 Studio & Analysis",
-        "🖼️ Visualization Studio",
-        "🧪 Experimental AI Lab",
-        "🌈 Harmony Explorer",
-        "🧬 Chroma Memory & DNA",
-        "⏳ Design Timeline",
-        "📁 Saved Palettes & Exports",
-        "💳 Subscription & Billing",
-        "👤 Profile & Preferences",
-        "🔐 Account & Security",
-        "🔑 Sign In / Sign Up",
-        "❓ Architectural Guide"
-    ]
-    
-    # Auto-select index
-    current_idx = 1
-    if st.session_state.current_view in nav_options:
-        current_idx = nav_options.index(st.session_state.current_view)
-        
-    selected_view = st.selectbox(
-        "Navigation Workspace",
-        nav_options,
-        index=current_idx,
-        label_visibility="collapsed"
-    )
-    
-    if selected_view != st.session_state.current_view:
-        st.session_state.current_view = selected_view
-        st.rerun()
-
-    st.markdown("---")
-
-    # User Quick Status & Theme Switcher
-    if st.session_state.current_user:
-        st.caption(f"Signed in as **{st.session_state.current_user['full_name']}**")
-        col_out, col_thm = st.columns([1, 1])
-        with col_out:
-            if st.button("Sign Out", use_container_width=True):
-                st.session_state.current_user = None
-                st.rerun()
-        with col_thm:
-            theme_label = "🌙 Dark" if st.session_state.theme == "light" else "☀️ Light"
-            if st.button(theme_label, use_container_width=True):
-                st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
-                st.rerun()
-    else:
-        st.caption("Guest Session — All Local CV tools active")
-        if st.button("🔑 Sign In / Sign Up", use_container_width=True):
-            st.session_state.current_view = "🔑 Sign In / Sign Up"
-            st.rerun()
-
-    st.markdown("---")
-    
-    # Global Room Image Uploader (Shared across workspaces)
-    st.markdown("### 📷 Room Image")
-    uploaded_file = st.file_uploader(
-        "Upload Room Photograph",
-        type=["jpg", "jpeg", "png", "webp"],
-        help="Upload physical room photo (JPG, PNG, WEBP, up to 15MB)."
-    )
-    if uploaded_file is not None:
-        raw_bytes = uploaded_file.getvalue()
-        if st.session_state.current_image_bytes != raw_bytes:
-            # Check server-side analysis entitlement
-            allowed, msg, _ = check_entitlement(active_user_id, "room_analysis")
-            if not allowed:
-                st.error(f"⚠️ Entitlement Limit: {msg}")
-            else:
-                st.session_state.current_image_bytes = raw_bytes
-                st.session_state.selected_palette_id = None
-                st.session_state.ai_preview_result = None
-                record_usage_metric(active_user_id, "analysis")
-                st.rerun()
-
-    if st.session_state.current_image_bytes is not None:
-        if st.button("🗑️ Clear Room Image", use_container_width=True):
-            st.session_state.current_image_bytes = None
-            st.session_state.image_metadata = None
-            st.session_state.selected_palette_id = None
-            st.session_state.ai_preview_result = None
-            st.rerun()
 
 
-# ====================================================
-# VIEW 1: SHOWCASE / LANDING PAGE
-# ====================================================
-if st.session_state.current_view == "🏛️ Showcase / Landing":
+def render_showcase_view():
     st.markdown(
         """
-        <div class="custom-card" style="text-align: center; padding: 40px 20px;">
-            <h2 style="font-family: 'Playfair Display', Georgia, serif; font-size: 2.5rem; margin-bottom: 12px; color: var(--text-primary);">
-                Elevate Physical Spaces with Architectural Colour Science
+        <div class="custom-card card-3d" style="text-align: center; padding: 44px 24px; margin-bottom: 24px;">
+            <div style="font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.16em; color: var(--accent-primary); margin-bottom: 8px;">
+                Chroma Studio AI • Architectural Atelier
+            </div>
+            <h2 style="font-family: 'Playfair Display', Georgia, serif; font-size: 2.6rem; margin-bottom: 14px; color: var(--text-primary); line-height: 1.2;">
+                Elevate Physical Spaces with Architectural Colour Science &amp; 3D Depth
             </h2>
-            <p style="font-size: 1.1rem; color: var(--text-secondary); max-width: 760px; margin: 0 auto 24px auto;">
-                An intelligent design workspace that transforms uploaded room photographs into personalized colour concepts,
-                luminance-preserving wall previews, and actionable specifications.
+            <p style="font-size: 1.05rem; color: var(--text-secondary); max-width: 780px; margin: 0 auto 24px auto; line-height: 1.6;">
+                An intelligent design workspace that transforms physical spaces into personalized colour concepts,
+                luminance-preserving wall previews, and interactive 3D architectural spatial simulations.
             </p>
         </div>
         """,
@@ -407,10 +363,11 @@ if st.session_state.current_view == "🏛️ Showcase / Landing":
     with col_w1:
         st.markdown(
             """
-            <div class="custom-card">
-                <h4 style="color: var(--accent-primary); margin-top:0;">1. Computer Vision</h4>
-                <p style="font-size: 0.88rem; color: var(--text-secondary);">
-                    K-Means clustering and ITU-R BT.709 perceptual luminance extract representative room tones while filtering sensor blowout.
+            <div class="custom-card card-3d">
+                <div style="font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: var(--accent-secondary); margin-bottom: 4px;">Subsystem 01</div>
+                <h4 style="color: var(--accent-primary); margin-top:0;">Computer Vision Engine</h4>
+                <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5;">
+                    Perceptual K-Means clustering and ITU-R BT.709 luminance scaling isolate authentic room tones while filtering sensor blowout.
                 </p>
             </div>
             """,
@@ -419,10 +376,11 @@ if st.session_state.current_view == "🏛️ Showcase / Landing":
     with col_w2:
         st.markdown(
             """
-            <div class="custom-card">
-                <h4 style="color: var(--accent-primary); margin-top:0;">2. Harmony Engine</h4>
-                <p style="font-size: 0.88rem; color: var(--text-secondary);">
-                    Generates 4 distinct architectural concepts enforcing the 60-30-10 interior rule with CIELAB Delta-E deduplication.
+            <div class="custom-card card-3d">
+                <div style="font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: var(--accent-secondary); margin-bottom: 4px;">Subsystem 02</div>
+                <h4 style="color: var(--accent-primary); margin-top:0;">Harmonic Intelligence</h4>
+                <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5;">
+                    Synthesizes 4 architectural concepts enforcing strict 60-30-10 distribution with CIEDE2000 Delta-E deduplication.
                 </p>
             </div>
             """,
@@ -431,24 +389,68 @@ if st.session_state.current_view == "🏛️ Showcase / Landing":
     with col_w3:
         st.markdown(
             """
-            <div class="custom-card">
-                <h4 style="color: var(--accent-primary); margin-top:0;">3. Shading-Preserving Preview</h4>
-                <p style="font-size: 0.88rem; color: var(--text-secondary);">
-                    Simulates paint application on segmented wall planes while strictly retaining ambient daylight falloff, texture, and shadows.
+            <div class="custom-card card-3d">
+                <div style="font-size: 0.74rem; font-weight: 700; text-transform: uppercase; color: var(--accent-secondary); margin-bottom: 4px;">Subsystem 03</div>
+                <h4 style="color: var(--accent-primary); margin-top:0;">Interactive 3D Spatial Canvas</h4>
+                <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5;">
+                    Interactive Three.js WebGL spatial simulation featuring dynamic orbit rotation, diurnal lighting shifts, and PBR specular finishes.
                 </p>
             </div>
             """,
             unsafe_allow_html=True
         )
 
+    # Interactive 3D Showcase Canvas
+    st.markdown("### 🏛️ Interactive 3D Spatial Room Model")
+    
+    showcase_palette = None
+    if st.session_state.current_image_bytes is not None:
+        try:
+            ext_dict = cached_dominant_colors(st.session_state.current_image_bytes)
+            ext = ExtractedColorAnalysis(**ext_dict)
+            an_dict = cached_room_analysis(st.session_state.current_image_bytes)
+            an = RoomAnalysisResult(**an_dict)
+            real_palettes = generate_recommended_palettes(ext, an)
+            if real_palettes:
+                showcase_palette = real_palettes[0]
+        except Exception:
+            pass
+
+    if showcase_palette is None:
+        st.caption("✨ Curated Architectural Sample: Rotate, pan, and zoom to inspect light falloff and wall finish reflections in real-time. (Upload a room photo in Studio for live image analysis)")
+        showcase_palette = PaletteConcept(
+            id="showcase_sample_01",
+            name="Sample: Warm Editorial Sanctuary",
+            concept_category="Modern Neutral",
+            harmony_type="Monochromatic",
+            description="Curated architectural sample palette demonstrating 60-30-10 balance in dark obsidian theme.",
+            atmosphere="Calm & Balanced",
+            primary_wall=ColorSwatch(name="Sandalwood Terracotta", hex="#B85C38", rgb=(184, 92, 56), role="Primary Wall (60%)", percentage=60.0, temperature="warm", luminance=0.49),
+            secondary_wall=ColorSwatch(name="Warm Greige Linen", hex="#D6C5B3", rgb=(214, 197, 179), role="Feature Wall (30%)", percentage=30.0, temperature="neutral", luminance=0.80),
+            accent=ColorSwatch(name="Obsidian Bronze", hex="#30271F", rgb=(48, 39, 31), role="Accent (10%)", percentage=10.0, temperature="warm", luminance=0.17),
+            trim=ColorSwatch(name="Alabaster White", hex="#F7F3EE", rgb=(247, 243, 238), role="Trim & Moulding", percentage=None, temperature="neutral", luminance=0.96),
+            design_rationale="Curated sample concept demonstrating 3D WebGL PBR depth and illumination.",
+            furniture_flooring_compatibility="Compatible with warm oak and dark bronze fixtures.",
+            heuristic_score=96.0
+        )
+    else:
+        st.caption(f"✨ Live Spatial Model for: **{showcase_palette.name}** (Derived from uploaded room photograph analysis)")
+
+    render_3d_room_preview_card(
+        palette=showcase_palette,
+        room_type="Living Room Gallery",
+        theme=st.session_state.theme,
+        height=520
+    )
+
     st.markdown("### 💎 Distinctive Architectural Features")
     col_f1, col_f2, col_f3, col_f4 = st.columns(4)
     with col_f1:
         st.markdown(
             """
-            <div class="custom-card">
-                <strong>Chroma Memory</strong>
-                <p style="font-size: 0.82rem; color: var(--text-secondary);">Adapts recommendations to your saved preferences and rejected tones over time.</p>
+            <div class="custom-card card-3d">
+                <strong style="color: var(--text-primary); font-size: 0.95rem;">Chroma Memory</strong>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 6px;">Adapts recommendations to your saved preferences and rejected tones over time.</p>
             </div>
             """,
             unsafe_allow_html=True
@@ -456,9 +458,9 @@ if st.session_state.current_view == "🏛️ Showcase / Landing":
     with col_f2:
         st.markdown(
             """
-            <div class="custom-card">
-                <strong>Chroma DNA</strong>
-                <p style="font-size: 0.82rem; color: var(--text-secondary);">Inspectable design signature profile with your core contrast and temperature tendencies.</p>
+            <div class="custom-card card-3d">
+                <strong style="color: var(--text-primary); font-size: 0.95rem;">Chroma DNA</strong>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 6px;">Inspectable personal design signature with core contrast and temperature tendencies.</p>
             </div>
             """,
             unsafe_allow_html=True
@@ -466,9 +468,9 @@ if st.session_state.current_view == "🏛️ Showcase / Landing":
     with col_f3:
         st.markdown(
             """
-            <div class="custom-card">
-                <strong>Daylight Simulator</strong>
-                <p style="font-size: 0.82rem; color: var(--text-secondary);">Visual simulation of Morning, Neutral, Overcast, and Evening ambient lighting conditions.</p>
+            <div class="custom-card card-3d">
+                <strong style="color: var(--text-primary); font-size: 0.95rem;">Daylight Simulator</strong>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 6px;">Diurnal simulation across Morning (3200K), Noon (5500K), Overcast, and Evening (2700K).</p>
             </div>
             """,
             unsafe_allow_html=True
@@ -476,9 +478,9 @@ if st.session_state.current_view == "🏛️ Showcase / Landing":
     with col_f4:
         st.markdown(
             """
-            <div class="custom-card">
-                <strong>Material-Aware Ranking</strong>
-                <p style="font-size: 0.82rem; color: var(--text-secondary);">Harmonizes recommendations against Oak, Walnut, Marble, Stone, Linen, and Brass.</p>
+            <div class="custom-card card-3d">
+                <strong style="color: var(--text-primary); font-size: 0.95rem;">Material Synergy</strong>
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 6px;">Harmonizes palettes against Oak, Walnut, Marble, Stone, Linen, and Brushed Brass.</p>
             </div>
             """,
             unsafe_allow_html=True
@@ -513,7 +515,7 @@ if st.session_state.current_view == "🏛️ Showcase / Landing":
 # ====================================================
 # VIEW 2: STUDIO & ANALYSIS WORKSPACE
 # ====================================================
-elif st.session_state.current_view == "🎨 Studio & Analysis":
+def render_studio_view():
     if st.session_state.current_image_bytes is None:
         st.info("👋 **Welcome to the Studio.** Upload a room photograph in the sidebar to begin dominant tone extraction and harmony generation.")
     else:
@@ -590,89 +592,416 @@ elif st.session_state.current_view == "🎨 Studio & Analysis":
 
         active_palette = next((p for p in palettes if p.id == st.session_state.selected_palette_id), palettes[0])
 
-        # Top section: Image & Observations
-        col_img, col_info = st.columns([1.1, 1.4])
-        with col_img:
-            st.image(original_pil, caption=f"Room Photograph ({metadata['width']}x{metadata['height']})", use_container_width=True)
-        with col_info:
-            render_room_analysis_card(room_analysis)
-            render_dominant_color_strip(extracted)
+        # ----------------------------------------------------
+        # CHROMA STUDIO AI — ARCHITECTURAL PRODUCT DETAIL & 3D STUDIO
+        # ----------------------------------------------------
+        saved_items_count = len(list_saved_palettes(user_id=active_user_id))
 
-        st.markdown("---")
-        st.markdown("### 🎨 Recommended Architectural Palettes")
+        col_left, col_right = st.columns([1.0, 1.25], gap="large")
 
-        for pal in palettes:
-            is_active = (pal.id == st.session_state.selected_palette_id)
-            card_border = "var(--accent-primary)" if is_active else "var(--border-subtle)"
-
+        with col_left:
+            # 1. Creator Tag & Display Headline
             st.markdown(
                 f"""
-                <div class="palette-card" style="border-color: {card_border}; border-width: {'2px' if is_active else '1px'};">
-                    <div class="palette-header">
-                        <div>
-                            <span style="font-size: 0.76rem; text-transform: uppercase; font-weight: 700; color: var(--accent-primary); letter-spacing: 0.5px;">
-                                {pal.concept_category} • {pal.harmony_type}
-                            </span>
-                            <h3 class="palette-title">{pal.name}</h3>
-                        </div>
-                        <div>
-                            <span class="score-badge">Match Score: {pal.heuristic_score}%</span>
-                        </div>
+                <div class="custom-card card-3d" style="padding: 24px 20px; margin-bottom: 18px;">
+                    <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em; color: var(--accent-primary); margin-bottom: 6px;">
+                        Chroma Studio AI • Spatial Colour Architecture
                     </div>
-                    <p style="font-size: 0.88rem; color: var(--text-secondary); margin: 4px 0 12px 0;">
-                        {pal.description}
+                    <h2 style="font-family: 'Playfair Display', Georgia, serif; font-size: 2.1rem; color: var(--text-primary); margin: 0 0 8px 0;">
+                        {active_palette.name}
+                    </h2>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                        <span class="metric-pill">Typology: <strong>{room_analysis.detected_room_type}</strong></span>
+                        <span class="metric-pill">Style: <strong>{room_analysis.detected_style}</strong></span>
+                        <span class="metric-pill">Lighting: <strong>{room_analysis.apparent_lighting}</strong></span>
+                    </div>
+                    <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6; margin: 0;">
+                        Architectural colour concept designed around natural room orientation and materials.
+                        Strictly adheres to the 60-30-10 distribution with zero-bleed wall isolation.
                     </p>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
-            render_palette_swatches_horizontal(pal)
+            # 2. Options / Palette Swatch Selector
+            st.markdown("##### 🎨 Recommended Architectural Concepts")
 
-            # Palette Card Actions
-            b_col1, b_col2, b_col3, b_col4 = st.columns([1.2, 1, 1, 1.5])
-            with b_col1:
-                if st.button("👁️ Active Preview" if is_active else "👉 Preview", key=f"preview_{pal.id}", use_container_width=True, disabled=is_active):
-                    st.session_state.selected_palette_id = pal.id
-                    st.rerun()
-            with b_col2:
-                if st.button("💾 Save", key=f"save_{pal.id}", use_container_width=True):
-                    # Check entitlement
+            palette_names = [f"{p.name}" for p in palettes]
+            active_idx = next((i for i, p in enumerate(palettes) if p.id == active_palette.id), 0)
+
+            selected_palette_name = st.radio(
+                "Select Palette Concept",
+                palette_names,
+                index=active_idx,
+                label_visibility="collapsed",
+                horizontal=False
+            )
+
+            # Update active palette if changed via radio
+            chosen_pal = next((p for p in palettes if p.name == selected_palette_name), palettes[0])
+            if chosen_pal.id != active_palette.id:
+                st.session_state.selected_palette_id = chosen_pal.id
+                st.rerun()
+
+            # Active Palette Swatches Breakdown with 3D Chips
+            st.markdown(
+                f"""
+                <div class="custom-card card-3d" style="padding: 18px; margin-top: 14px; margin-bottom: 18px;">
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
+                        <div class="swatch-chip-3d" style="background-color: {active_palette.primary_wall.hex}; width: 22px; height: 22px; border-radius: 50%;"></div>
+                        <strong style="font-size: 1.05rem; font-family: 'Playfair Display', Georgia, serif; color: var(--text-primary);">{active_palette.name}</strong>
+                        <span class="score-badge" style="margin-left: auto;">Match: {active_palette.heuristic_score}%</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; font-size: 0.74rem;">
+                        <div>
+                            <div class="swatch-chip-3d" style="background-color: {active_palette.primary_wall.hex}; height: 38px; margin-bottom: 6px;"></div>
+                            <span style="color: var(--text-muted); font-size: 0.68rem; font-weight: 700; text-transform: uppercase;">Primary 60%</span><br>
+                            <span style="font-weight: 700; color: var(--text-primary);">{active_palette.primary_wall.name}</span><br>
+                            <code style="color: var(--accent-primary);">{active_palette.primary_wall.hex.upper()}</code>
+                        </div>
+                        <div>
+                            <div class="swatch-chip-3d" style="background-color: {active_palette.secondary_wall.hex}; height: 38px; margin-bottom: 6px;"></div>
+                            <span style="color: var(--text-muted); font-size: 0.68rem; font-weight: 700; text-transform: uppercase;">Secondary 30%</span><br>
+                            <span style="font-weight: 700; color: var(--text-primary);">{active_palette.secondary_wall.name}</span><br>
+                            <code style="color: var(--accent-primary);">{active_palette.secondary_wall.hex.upper()}</code>
+                        </div>
+                        <div>
+                            <div class="swatch-chip-3d" style="background-color: {active_palette.accent.hex}; height: 38px; margin-bottom: 6px;"></div>
+                            <span style="color: var(--text-muted); font-size: 0.68rem; font-weight: 700; text-transform: uppercase;">Accent 10%</span><br>
+                            <span style="font-weight: 700; color: var(--text-primary);">{active_palette.accent.name}</span><br>
+                            <code style="color: var(--accent-primary);">{active_palette.accent.hex.upper()}</code>
+                        </div>
+                        <div>
+                            <div class="swatch-chip-3d" style="background-color: {active_palette.trim.hex}; height: 38px; margin-bottom: 6px;"></div>
+                            <span style="color: var(--text-muted); font-size: 0.68rem; font-weight: 700; text-transform: uppercase;">Trim / Ceiling</span><br>
+                            <span style="font-weight: 700; color: var(--text-primary);">{active_palette.trim.name}</span><br>
+                            <code style="color: var(--accent-primary);">{active_palette.trim.hex.upper()}</code>
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            # Hairline Divider
+            st.markdown('<div class="chroma-hairline"></div>', unsafe_allow_html=True)
+
+            # 3. Signature CTA Buttons
+            btn_c1, btn_c2 = st.columns([1.3, 1.0])
+            with btn_c1:
+                if st.button("💾 Save Palette to Collection", key=f"chroma_save_{active_palette.id}", use_container_width=True):
                     allowed, msg, _ = check_entitlement(active_user_id, "save_palette")
                     if not allowed:
                         st.error(msg)
                     else:
                         rec_id = save_palette(
-                            palette=pal,
-                            custom_name=pal.name,
+                            palette=active_palette,
+                            custom_name=active_palette.name,
                             room_type=room_analysis.detected_room_type,
                             interior_style=room_analysis.detected_style,
                             preferences=current_preferences,
                             user_id=active_user_id
                         )
-                        record_favorite_palette(active_user_id, pal, style=room_analysis.detected_style)
-                        st.session_state.save_status_message = f"✅ Saved '{pal.name}' to library!"
+                        record_favorite_palette(active_user_id, active_palette, style=room_analysis.detected_style)
+                        st.session_state.save_status_message = f"✅ Saved '{active_palette.name}' to collection!"
                         st.rerun()
-            with b_col3:
-                if st.button("👎 Dismiss", key=f"dismiss_{pal.id}", use_container_width=True):
-                    record_rejected_palette(active_user_id, pal)
-                    st.caption("Noted in Chroma Memory.")
-            with b_col4:
-                st.code(f"{pal.primary_wall.hex}, {pal.secondary_wall.hex}, {pal.accent.hex}, {pal.trim.hex}", language="text")
 
-            # Explainability & Confidence
-            render_explainability_card(pal)
-            st.markdown("<br>", unsafe_allow_html=True)
+            with btn_c2:
+                swatch_sheet_buf = generate_swatch_sheet_png(active_palette, room_type=room_analysis.detected_room_type)
+                st.download_button(
+                    "⬇️ Swatch Sheet (PNG)",
+                    data=swatch_sheet_buf.getvalue(),
+                    file_name=f"{active_palette.name.replace(' ', '_').lower()}_swatch.png",
+                    mime="image/png",
+                    key="chroma_swatch_download",
+                    use_container_width=True
+                )
 
-        if st.session_state.save_status_message:
-            st.success(st.session_state.save_status_message)
-            st.session_state.save_status_message = None
+            if st.session_state.save_status_message:
+                st.success(st.session_state.save_status_message)
+                st.session_state.save_status_message = None
+
+        with col_right:
+            # Right Hero Staging Container
+            st.markdown("##### 🖼️ Spatial Staging & Wall Simulation")
+
+            view_mode = st.radio(
+                "Staging Mode",
+                ["Recoloured Preview", "Side-by-Side Comparison", "Split Slider Comparison", "Wall Mask Overlay"],
+                index=0,
+                horizontal=True,
+                label_visibility="collapsed"
+            )
+
+            # Compute wall mask (cached)
+            mask_png_bytes, mask_meta = cached_wall_mask(
+                st.session_state.current_image_bytes,
+                st.session_state.mask_sensitivity,
+                st.session_state.upper_bias,
+                st.session_state.edge_protection,
+                target_plane_id=st.session_state.selected_wall_plane_id
+            )
+            wall_mask_arr = np.array(Image.open(io.BytesIO(mask_png_bytes)).convert("L"))
+
+            # Apply real luminance-preserving wall recolouring
+            recoloured_room = apply_luminance_preserving_recolour(
+                original_img=original_pil,
+                wall_mask=wall_mask_arr,
+                target_rgb=active_palette.primary_wall.rgb,
+                intensity=st.session_state.recolour_intensity,
+                strategy=st.session_state.recolour_strategy,
+                shading_retention=st.session_state.shading_retention
+            )
+
+            # Display selected view in the Showcase Box
+            if view_mode == "Recoloured Preview":
+                st.image(recoloured_room, use_container_width=True, caption=f"Primary Wall: {active_palette.primary_wall.name} ({active_palette.primary_wall.hex.upper()})")
+            elif view_mode == "Side-by-Side Comparison":
+                sbs_img = create_side_by_side_comparison(
+                    original_pil,
+                    recoloured_room,
+                    paint_name=active_palette.primary_wall.name,
+                    hex_code=active_palette.primary_wall.hex.upper()
+                )
+                st.image(sbs_img, use_container_width=True)
+            elif view_mode == "Split Slider Comparison":
+                split_val = st.slider("Divider Position", 0.1, 0.9, 0.5, 0.05, label_visibility="collapsed")
+                split_img = create_split_slider_comparison(
+                    original_pil,
+                    recoloured_room,
+                    split_ratio=split_val,
+                    line_color=(255, 255, 255),
+                    line_width=3
+                )
+                st.image(split_img, use_container_width=True)
+            else:
+                mask_vis = create_mask_overlay_preview(original_pil, wall_mask_arr)
+                st.image(mask_vis, use_container_width=True, caption=f"Wall Mask Coverage: {mask_meta.get('wall_coverage_percent', 0)}%")
+
+            # Extracted Dominant Colours below image
+            render_dominant_color_strip(extracted)
+
+            # Compact sliders for paint density & wall sensitivity
+            s_c1, s_c2 = st.columns(2)
+            with s_c1:
+                st.session_state.recolour_intensity = st.slider(
+                    "Paint Intensity",
+                    0.20, 1.00, float(st.session_state.recolour_intensity), 0.05
+                )
+            with s_c2:
+                st.session_state.mask_sensitivity = st.slider(
+                    "Wall Detection Sensitivity",
+                    0.20, 0.90, float(st.session_state.mask_sensitivity), 0.05
+                )
+
+        # ----------------------------------------------------
+        # BELOW THE FOLD: EDITORIAL ACCORDIONS
+        # ----------------------------------------------------
+        st.markdown('<div class="chroma-hairline"></div>', unsafe_allow_html=True)
+
+        with st.expander("01. Architectural Specifications & LRV (Light Reflectance Values)", expanded=False):
+            render_palette_swatches_horizontal(active_palette)
+            render_explainability_card(active_palette)
+
+        with st.expander("02. Spatial Room Analysis & Lighting Evaluation", expanded=False):
+            render_room_analysis_card(room_analysis)
+
+        with st.expander("03. Material & Furniture Harmony Evaluations", expanded=False):
+            st.markdown(f"**Existing Surface Harmony:** {active_palette.furniture_flooring_compatibility}")
+            st.markdown(f"**Design Rationale:** {active_palette.design_rationale}")
+
+        with st.expander("04. Smart Paint Quantity & Coverage Estimator", expanded=False):
+            est_col1, est_col2, est_col3 = st.columns(3)
+            with est_col1:
+                sq_ft = st.number_input("Room Wall Area (sq.ft)", value=350, min_value=50, max_value=5000, step=25)
+            with est_col2:
+                coats = st.selectbox("Paint Coats", [1, 2, 3], index=1)
+            with est_col3:
+                estimate = estimate_paint_quantity(PaintEstimateInput(total_wall_area_sqft=sq_ft, num_coats=coats))
+                st.metric("Estimated Paint Required", f"{estimate.total_litres_needed} Litres", f"{estimate.recommended_cans_one_litre} x 1L Cans")
+
+        with st.expander("05. Export Consultation Suite (JSON, CSV, PNG, TXT, MD, PDF)", expanded=False):
+            exp_c1, exp_c2, exp_c3, exp_c4, exp_c5, exp_c6 = st.columns(6)
+            with exp_c1:
+                json_str = export_palette_json(active_palette, room_analysis=room_analysis)
+                st.download_button("Export JSON", data=json_str, file_name=f"{active_palette.name.replace(' ', '_').lower()}.json", mime="application/json", use_container_width=True)
+            with exp_c2:
+                csv_str = export_palette_csv(active_palette)
+                st.download_button("Export CSV", data=csv_str, file_name=f"{active_palette.name.replace(' ', '_').lower()}.csv", mime="text/csv", use_container_width=True)
+            with exp_c3:
+                sw_buf = generate_swatch_sheet_png(active_palette, room_type=room_analysis.detected_room_type)
+                st.download_button("Export Swatch PNG", data=sw_buf.getvalue(), file_name=f"{active_palette.name.replace(' ', '_').lower()}_swatch.png", mime="image/png", use_container_width=True)
+            with exp_c4:
+                txt_rep = generate_text_report(active_palette, room_analysis, extracted, room_type=room_analysis.detected_room_type)
+                st.download_button("Export TXT", data=txt_rep, file_name=f"{active_palette.name.replace(' ', '_').lower()}_report.txt", mime="text/plain", use_container_width=True)
+            with exp_c5:
+                md_rep = generate_markdown_report(active_palette, room_analysis, extracted, room_type=room_analysis.detected_room_type)
+                st.download_button("Export MD", data=md_rep, file_name=f"{active_palette.name.replace(' ', '_').lower()}_report.md", mime="text/markdown", use_container_width=True)
+            with exp_c6:
+                pdf_rep = generate_pdf_report(active_palette, room_analysis, extracted, room_type=room_analysis.detected_room_type)
+                st.download_button("Export PDF", data=pdf_rep.getvalue(), file_name=f"{active_palette.name.replace(' ', '_').lower()}_report.pdf", mime="application/pdf", use_container_width=True)
+
+        with st.expander("06. All 4 Architectural Concept Cards", expanded=False):
+            for pal in palettes:
+                is_active = (pal.id == active_palette.id)
+                st.markdown(
+                    f"""
+                    <div class="palette-card card-3d" style="border-width: {'2px' if is_active else '1px'}; border-color: {'var(--accent-primary)' if is_active else 'var(--border-subtle)'};">
+                        <div class="palette-header">
+                            <div>
+                                <span style="font-size: 0.72rem; font-weight: 700; color: var(--accent-secondary); text-transform: uppercase;">{pal.concept_category} • {pal.harmony_type}</span>
+                                <h4 class="palette-title">{pal.name}</h4>
+                            </div>
+                            <span class="score-badge">Match: {pal.heuristic_score}%</span>
+                        </div>
+                        <p style="font-size: 0.86rem; color: var(--text-secondary); margin: 6px 0 12px 0;">{pal.description}</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+                render_palette_swatches_horizontal(pal)
+                if not is_active:
+                    if st.button("Select This Concept", key=f"pick_{pal.id}"):
+                        st.session_state.selected_palette_id = pal.id
+                        st.rerun()
+
+
+# ====================================================
+# EXPANSION VIEW: LIVE CAMERA STUDIO
+# ====================================================
+def render_live_camera_view():
+    st.markdown("## 📹 Live Camera Studio & Everyday Intelligence")
+    st.caption("Real-time architectural video feed, live room feature detection, and zero-bleed wall colour simulation.")
+
+    render_privacy_shield_banner()
+
+    cam_col1, cam_col2 = st.columns([1.2, 1.0], gap="large")
+
+    with cam_col1:
+        st.markdown("### 🎥 Camera Stream")
+        webrtc_on = is_webrtc_available()
+
+        feed_mode = st.radio(
+            "Camera Mode",
+            ["Live WebRTC Stream (Continuous)", "Browser Snapshot Camera", "Upload Room Frame"],
+            horizontal=True
+        )
+
+        if feed_mode == "Live WebRTC Stream (Continuous)":
+            if not webrtc_on:
+                st.warning("streamlit-webrtc is not loaded in this session. Using browser camera input.")
+            else:
+                # Configuration controls
+                cf_c1, cf_c2, cf_c3 = st.columns(3)
+                with cf_c1:
+                    cam_resolution = st.selectbox("Resolution", ["640x480 (Fast)", "1280x720 (HD)", "1920x1080 (FHD)"], index=0)
+                with cf_c2:
+                    live_overlay_type = st.selectbox("Live Stream Overlay", ["Clean Video Feed", "Wall Colour Simulation", "Room Intelligence Bounding Boxes"], index=0)
+                with cf_c3:
+                    active_target_color = st.color_picker("Overlay Wall Shade", value="#B85C38")
+
+                # WebRTC Streamer
+                h_hex = active_target_color.lstrip("#")
+                t_rgb = (int(h_hex[0:2], 16), int(h_hex[2:4], 16), int(h_hex[4:6], 16))
+
+                # Initialize thread-safe frame holder
+                if "live_frame_holder" not in st.session_state:
+                    st.session_state.live_frame_holder = ThreadSafeFrameHolder()
+
+                from streamlit_webrtc import webrtc_streamer, RTCConfiguration
+                ctx = webrtc_streamer(
+                    key="chroma_live_webcam",
+                    rtc_configuration=RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}),
+                    media_stream_constraints={
+                        "video": {
+                            "width": {"ideal": 1280} if "1280" in cam_resolution else {"ideal": 640},
+                            "height": {"ideal": 720} if "1280" in cam_resolution else {"ideal": 480}
+                        },
+                        "audio": False
+                    },
+                    async_processing=True
+                )
+
+                if ctx.video_transformer:
+                    ctx.video_transformer.frame_holder = st.session_state.live_frame_holder
+                    ctx.video_transformer.overlay_mode = "wall_preview" if live_overlay_type == "Wall Colour Simulation" else "none"
+                    ctx.video_transformer.target_rgb = t_rgb
+
+        elif feed_mode == "Browser Snapshot Camera":
+            cam_picture = st.camera_input("Capture live room frame with your webcam")
+            if cam_picture is not None:
+                st.session_state.current_image_bytes = cam_picture.getvalue()
+                st.success("Captured room frame loaded into Chroma Studio!")
+                st.rerun()
+        else:
+            up_f = st.file_uploader("Upload room frame", type=["jpg", "png", "webp"], key="cam_up")
+            if up_f is not None:
+                st.session_state.current_image_bytes = up_f.getvalue()
+                st.success("Uploaded room frame loaded!")
+                st.rerun()
+
+        # Snapshot Button
+        st.markdown('<div class="chroma-hairline"></div>', unsafe_allow_html=True)
+        if st.button("📸 Capture Snapshot into Design Studio", use_container_width=True):
+            if "live_frame_holder" in st.session_state and st.session_state.live_frame_holder.get_frame() is not None:
+                pil_frame = st.session_state.live_frame_holder.get_pil_image()
+                buf = io.BytesIO()
+                pil_frame.save(buf, format="JPEG", quality=90)
+                st.session_state.current_image_bytes = buf.getvalue()
+                st.success("✅ Captured snapshot from live video stream! Switched into Studio.")
+                st.session_state.current_view = "🎨 Studio & Analysis"
+                st.rerun()
+            elif st.session_state.current_image_bytes is not None:
+                st.info("Using currently active room image.")
+                st.session_state.current_view = "🎨 Studio & Analysis"
+                st.rerun()
+            else:
+                st.warning("Start camera stream or take a snapshot above to capture a frame.")
+
+    with cam_col2:
+        st.markdown("### 🧠 Live Room Intelligence")
+        st.caption("Real-time structural element classification and confidence scoring.")
+
+        if st.session_state.current_image_bytes is not None:
+            pil_to_analyze = Image.open(io.BytesIO(st.session_state.current_image_bytes)).convert("RGB")
+            with st.spinner("Analyzing architectural elements in frame..."):
+                intel_res = analyze_live_frame_intelligence(pil_to_analyze)
+
+            st.markdown(f"**Detected Elements ({intel_res['elements_detected_count']}):**")
+            annotated_img = draw_intelligence_bounding_boxes(pil_to_analyze, intel_res)
+            st.image(annotated_img, caption="Architectural Bounding Box Segmentation", use_container_width=True)
+
+            # Detections list
+            for d in intel_res["detections"]:
+                conf_pct = int(d["confidence"] * 100)
+                dom_hex = d.get("dominant_hex", "#30271F")
+                st.markdown(
+                    f"""
+                    <div class="custom-card" style="padding: 12px 16px; margin-bottom: 8px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="font-weight: 700; color: var(--text-primary);">{d['category']}</span>
+                                <span style="font-size: 0.8rem; color: var(--text-secondary); margin-left: 8px;">{d['area_percentage']}% room area</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="display: inline-block; width: 14px; height: 14px; border-radius: 50%; background-color: {dom_hex}; border: 1px solid var(--border-subtle);"></span>
+                                <span class="score-badge">Conf: {conf_pct}%</span>
+                            </div>
+                        </div>
+                        <p style="font-size: 0.80rem; color: var(--text-secondary); margin: 4px 0 0 0;">{d['description']}</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+        else:
+            st.info("Start your webcam or capture a frame to view real-time architectural segmentation.")
 
 
 # ====================================================
 # VIEW 3: ROOM VISUALIZATION STUDIO
 # ====================================================
-elif st.session_state.current_view == "🖼️ Visualization Studio":
+def render_visualization_view():
     if st.session_state.current_image_bytes is None:
         st.info("Upload a room photograph in the sidebar to visualize paint simulations.")
     else:
@@ -685,20 +1014,61 @@ elif st.session_state.current_view == "🖼️ Visualization Studio":
         active_palette = next((p for p in palettes if p.id == st.session_state.selected_palette_id), palettes[0])
 
         st.markdown(f"### 🖼️ Visualizing: **{active_palette.name}**")
-        st.caption(f"Primary Wall Paint: **{active_palette.primary_wall.name}** ({active_palette.primary_wall.hex})")
+        st.caption(f"Primary Wall Paint: **{active_palette.primary_wall.name}** ({active_palette.primary_wall.hex}) • Secondary: **{active_palette.secondary_wall.name}** ({active_palette.secondary_wall.hex})")
 
         vis_tabs = st.tabs([
-            "🛠️ Mode 1: Local Wall Recolouring (Shading & Texture Preserved)",
-            "✨ Mode 2: AI-Enhanced Preview (Generative Render)"
+            "🏛️ Mode 1: Interactive 3D Spatial Model (WebGL & Orbit)",
+            "🛠️ Mode 2: Local 2D Wall Recolouring (Zero-Bleed CV)",
+            "✨ Mode 3: AI-Enhanced Preview (Generative Diffusion)"
         ])
 
+        # Tab 0: Three.js Interactive 3D Spatial Room Model
         with vis_tabs[0]:
             st.markdown(
                 """
-                <div class="custom-card" style="margin-bottom: 14px; padding: 12px 16px;">
+                <div class="custom-card card-3d" style="margin-bottom: 14px; padding: 14px 18px; border-left: 4px solid var(--accent-primary);">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-weight: 700; color: var(--accent-primary); font-size: 0.94rem;">
+                            🏛️ Mode 1 Active: Three.js Interactive 3D Spatial Canvas
+                        </span>
+                        <span class="score-badge" style="background-color: #E8EFE9; color: #3A6946;">
+                            WebGL PBR Shader
+                        </span>
+                    </div>
+                    <p style="font-size: 0.84rem; color: var(--text-secondary); margin: 4px 0 0 0;">
+                        Inspect color transitions, room depth, and lighting angles on a live 3D architectural model. Drag with your mouse to orbit around the room, scroll to zoom in/out, and switch wall finishes in real-time.
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            # Palette Quick Info Bar
+            c_p1, c_p2, c_p3, c_p4 = st.columns(4)
+            with c_p1:
+                st.markdown(f"**Primary Wall (60%):** `{active_palette.primary_wall.hex.upper()}` ({active_palette.primary_wall.name})")
+            with c_p2:
+                st.markdown(f"**Feature Wall (30%):** `{active_palette.secondary_wall.hex.upper()}` ({active_palette.secondary_wall.name})")
+            with c_p3:
+                st.markdown(f"**Accent Furniture (10%):** `{active_palette.accent.hex.upper()}` ({active_palette.accent.name})")
+            with c_p4:
+                st.markdown(f"**Trim & Ceiling:** `{active_palette.trim.hex.upper()}` ({active_palette.trim.name})")
+
+            # Render Three.js WebGL canvas
+            render_3d_room_preview_card(
+                palette=active_palette,
+                room_type=room_analysis.detected_room_type if room_analysis else "Living Room Gallery",
+                theme=st.session_state.theme,
+                height=560
+            )
+
+        with vis_tabs[1]:
+            st.markdown(
+                """
+                <div class="custom-card card-3d" style="margin-bottom: 14px; padding: 12px 16px;">
                     <div style="display: flex; align-items: center; justify-content: space-between;">
                         <span style="font-weight: 700; color: var(--accent-primary); font-size: 0.92rem;">
-                            🟢 Mode 1 Active: Local Wall Recolouring
+                            🟢 Mode 2 Active: Local 2D Wall Recolouring
                         </span>
                         <span class="score-badge" style="background-color: #E8EFE9; color: #3A6946; font-size: 0.78rem;">
                             100% Offline &amp; Unmetered
@@ -880,8 +1250,8 @@ elif st.session_state.current_view == "🖼️ Visualization Studio":
             recoloured_room.save(rec_buf, format="PNG")
             st.download_button("⬇️ Download High-Res Preview (PNG)", rec_buf.getvalue(), "recoloured_room.png", "image/png")
 
-        with vis_tabs[1]:
-            st.markdown("#### Mode 2: AI-Enhanced Generative Preview")
+        with vis_tabs[2]:
+            st.markdown("#### Mode 3: AI-Enhanced Generative Preview")
             edit_status = get_image_editing_status()
             
             if edit_status["is_configured"]:
@@ -949,9 +1319,718 @@ elif st.session_state.current_view == "🖼️ Visualization Studio":
 
 
 # ====================================================
+# EXPANSION VIEW 1: LIVE COLOUR SCANNER
+# ====================================================
+def render_colour_scanner_view():
+    st.markdown("## 🎯 Live Colour Scanner & Reticle Sampler")
+    st.caption("Point-and-sample multi-space colour acquisition (RGB, HEX, HSV, CIELAB) with neighborhood noise averaging.")
+
+    render_privacy_shield_banner()
+
+    if st.session_state.current_image_bytes is None:
+        st.info("Upload a room image in the sidebar or capture a snapshot in 📹 Live Camera Studio to scan colours.")
+    else:
+        scanner_pil = Image.open(io.BytesIO(st.session_state.current_image_bytes)).convert("RGB")
+        w_img, h_img = scanner_pil.size
+
+        scan_col1, scan_col2 = st.columns([1.1, 1.0], gap="large")
+
+        with scan_col1:
+            st.markdown("### 🔍 Viewfinder & Crosshair Sampler")
+            
+            # Interactive reticle position controls
+            rc1, rc2, rc3 = st.columns(3)
+            with rc1:
+                ret_x = st.slider("Reticle X Position (%)", 0, 100, 50, step=1) / 100.0
+            with rc2:
+                ret_y = st.slider("Reticle Y Position (%)", 0, 100, 50, step=1) / 100.0
+            with rc3:
+                radius = st.selectbox("Kernel Radius (px)", [3, 5, 7, 9, 15], index=1)
+
+            # Sample the color under reticle
+            scanned_spot = scan_color_at_reticle(scanner_pil, ret_x, ret_y, sample_radius=radius)
+
+            # Render crosshair on image
+            crosshair_img = draw_reticle_crosshair(scanner_pil, ret_x, ret_y, active_color_hex=scanned_spot.hex)
+            st.image(crosshair_img, caption=f"Viewfinder Reticle ({int(ret_x * w_img)}px, {int(ret_y * h_img)}px)", use_container_width=True)
+
+        with scan_col2:
+            st.markdown("### 📊 Optical Spectral Analysis")
+            
+            # Display sampled color details card
+            st.markdown(
+                f"""
+                <div class="custom-card" style="padding: 18px; margin-bottom: 16px; border-left: 6px solid {scanned_spot.hex};">
+                    <div style="display: flex; gap: 16px; align-items: center;">
+                        <div style="width: 64px; height: 64px; border-radius: 8px; background-color: {scanned_spot.hex}; border: 1px solid var(--border-subtle); flex-shrink: 0; box-shadow: var(--shadow-sm);"></div>
+                        <div style="flex: 1;">
+                            <h3 style="margin: 0; font-size: 1.25rem; font-family: 'Playfair Display', Georgia, serif; color: var(--text-primary);">{scanned_spot.name}</h3>
+                            <div style="font-size: 0.95rem; font-weight: 700; color: var(--accent-primary); margin-top: 2px;">{scanned_spot.hex}</div>
+                            <span class="score-badge" style="margin-top: 4px; display: inline-block;">Temperature: {scanned_spot.temperature}</span>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-subtle); font-size: 0.78rem;">
+                        <div>
+                            <span style="color: var(--text-secondary);">RGB Coordinates</span><br>
+                            <code>({scanned_spot.rgb[0]}, {scanned_spot.rgb[1]}, {scanned_spot.rgb[2]})</code>
+                        </div>
+                        <div>
+                            <span style="color: var(--text-secondary);">CIELAB (L*, a*, b*)</span><br>
+                            <code>({scanned_spot.lab[0]}, {scanned_spot.lab[1]}, {scanned_spot.lab[2]})</code>
+                        </div>
+                        <div>
+                            <span style="color: var(--text-secondary);">Perceptual Luminance</span><br>
+                            <code>{scanned_spot.luminance}</code>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.76rem; color: var(--text-muted); margin: 8px 0 0 0;">{scanned_spot.notes}</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            # Save to Library Form
+            with st.form("save_scanned_color_form"):
+                st.markdown("#### 💾 Save to Personal Chroma Library")
+                s_name = st.text_input("Custom Color Label", value=scanned_spot.name)
+                s_tag = st.selectbox("Architectural Application Tag", ["Accent Wall", "Primary Surface", "Trim / Molding", "Ceiling", "Millwork", "Exterior / Facade"])
+                s_note = st.text_input("Room Note / Context", value=f"Sampled at ({int(ret_x * 100)}%, {int(ret_y * 100)}%) from current room photo")
+                
+                submitted = st.form_submit_button("Save Color to Library", use_container_width=True)
+                if submitted:
+                    save_scanned_color(
+                        user_id=active_user_id,
+                        hex_code=scanned_spot.hex,
+                        color_name=s_name,
+                        rgb_tuple=scanned_spot.rgb,
+                        lab_tuple=scanned_spot.lab,
+                        tags=[s_tag],
+                        room_source=s_note
+                    )
+                    st.success(f"✅ Saved '{s_name}' ({scanned_spot.hex}) to your Chroma Library!")
+                    st.rerun()
+
+            # Fast Cluster Palette from this frame
+            st.markdown("---")
+            st.markdown("#### 🎨 Dominant Frame Palette (Real-Time Clustering)")
+            clusters = scan_frame_dominant_palette(scanner_pil, k_clusters=5)
+            cl_cols = st.columns(len(clusters))
+            for i, (col, c_detail) in enumerate(zip(cl_cols, clusters)):
+                with col:
+                    st.markdown(
+                        f"""
+                        <div class="custom-card" style="padding: 10px; text-align: center;">
+                            <div style="background-color: {c_detail.hex}; height: 42px; border-radius: 6px; margin-bottom: 6px; border: 1px solid var(--border-subtle);"></div>
+                            <strong style="font-size: 0.78rem; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{c_detail.name}</strong>
+                            <code style="font-size: 0.72rem;">{c_detail.hex}</code><br>
+                            <span style="font-size: 0.68rem; color: var(--text-secondary);">{c_detail.percentage}% area</span>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+        # Saved Personal Library Section
+        st.markdown("---")
+        st.markdown("### 📚 Your Saved Scanned Colours")
+        saved_scans = list_scanned_colors(active_user_id)
+        if not saved_scans:
+            st.caption("No scanned colours saved yet. Use the viewfinder above to sample and save room tones.")
+        else:
+            lib_cols = st.columns(min(4, len(saved_scans)))
+            for idx, sc in enumerate(saved_scans):
+                with lib_cols[idx % 4]:
+                    st.markdown(
+                        f"""
+                        <div class="custom-card" style="padding: 14px; margin-bottom: 12px; border-top: 4px solid {sc['hex_code']};">
+                            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 6px;">
+                                <div style="width: 32px; height: 32px; border-radius: 6px; background-color: {sc['hex_code']}; border: 1px solid var(--border-subtle);"></div>
+                                <div>
+                                    <strong style="font-size: 0.88rem; color: var(--text-primary);">{sc['color_name']}</strong><br>
+                                    <code style="font-size: 0.76rem;">{sc['hex_code']}</code>
+                                </div>
+                            </div>
+                            <div style="font-size: 0.74rem; color: var(--text-secondary); margin-bottom: 4px;">
+                                Tags: <strong>{', '.join(sc.get('tags', []))}</strong>
+                            </div>
+                            <div style="font-size: 0.70rem; color: var(--text-muted);">
+                                {sc.get('room_source', '')}
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                    if st.button("🗑️ Delete", key=f"del_scan_{sc['id']}", use_container_width=True):
+                        delete_scanned_color(sc["id"], active_user_id)
+                        st.rerun()
+
+
+# ====================================================
+# EXPANSION VIEW 2: PAINT BRAND MATCHER
+# ====================================================
+def render_brand_matcher_view():
+    st.markdown("## 🏷️ Paint Brand Matcher (Indian Commercial Catalogues)")
+    st.caption("Direct CIELAB Delta E matching against physical shade cards from Asian Paints, Berger, Kansai Nerolac, and Dulux India.")
+
+    st.markdown(
+        """
+        <div class="custom-card" style="padding: 14px 18px; margin-bottom: 18px; border-left: 4px solid var(--accent-primary);">
+            <div style="font-weight: 700; color: var(--accent-primary); font-size: 0.90rem;">
+                🏛️ Commercial Shade Accuracy Disclaimer
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 4px 0 0 0;">
+                Color matches are computed using exact CIELAB perceptual distance (ΔE) under standard CIE D65 daylight illuminant.
+                Matches with ΔE ≤ 2.0 represent commercially indistinguishable shades. Always verify physical shade cards and primer requirements with an authorized dealer prior to batch tinting.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Input target color
+    bm_col1, bm_col2 = st.columns([1.0, 1.4], gap="large")
+
+    with bm_col1:
+        st.markdown("### 🎨 Select Target Shade")
+        
+        # Color input mode
+        input_mode = st.radio("Target Source", ["Color Picker (HEX)", "Extract from Room Photo"], horizontal=True)
+
+        target_hex = "#7A4A32"
+        if input_mode == "Color Picker (HEX)":
+            target_hex = st.color_picker("Pick Target Shade", value="#7A4A32")
+        else:
+            if st.session_state.current_image_bytes is not None:
+                ext_dict = cached_dominant_colors(st.session_state.current_image_bytes)
+                extracted_colors = ext_dict.get("colors", [])
+                if extracted_colors:
+                    opts = [f"{c['name']} ({c['hex']})" for c in extracted_colors]
+                    sel_opt = st.selectbox("Select Extracted Room Tone", opts, index=0)
+                    target_hex = sel_opt.split("(")[-1].rstrip(")")
+                else:
+                    st.info("No tones extracted. Using default terracotta.")
+            else:
+                st.info("Upload room image in sidebar to extract room tones.")
+
+        st.markdown(
+            f"""
+            <div class="custom-card" style="padding: 14px; text-align: center; margin-top: 12px;">
+                <div style="background-color: {target_hex}; height: 60px; border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--border-subtle);"></div>
+                <strong>Target Tone: <code>{target_hex.upper()}</code></strong>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown("### 🔍 Manufacturer Filters")
+        available_brands = get_available_brands()
+        sel_brand = st.selectbox("Filter Brand", available_brands, index=0)
+        max_matches = st.slider("Maximum Matches to Display", 2, 8, 4)
+
+    with bm_col2:
+        st.markdown("### 🏆 Commercial Brand Matches")
+        
+        matches = match_paint_brand_shades(target_hex, brand_filter=sel_brand, max_results=max_matches)
+        if not matches:
+            st.warning("No commercial shades found within specified tolerance.")
+        else:
+            for m in matches:
+                render_paint_brand_match_card(m)
+
+            st.markdown(
+                """
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 12px;">
+                    ℹ️ Estimated rates based on standard 1-Litre interior architectural packs in INR (inclusive of GST).
+                    Bulk 4L, 10L, and 20L contractor packs typically provide 12–18% volume savings.
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+
+# ====================================================
+# EXPANSION VIEW 3: FURNITURE & ROOM PLANNER
+# ====================================================
+def render_room_planner_view():
+    st.markdown("## 📐 Architectural Furniture & Spatial Room Planner")
+    st.caption("Spatial density audits, circulation clearance checks, and layout management.")
+
+    st.markdown(
+        """
+        <div class="custom-card" style="padding: 14px 18px; margin-bottom: 18px; border-left: 4px solid var(--accent-secondary);">
+            <div style="font-weight: 700; color: var(--accent-secondary); font-size: 0.90rem;">
+                ⚠️ Architectural Clearance & Spatial Feasibility Notice
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 4px 0 0 0;">
+                Calculations provide approximate spatial clearances based on standard human factor ergonomics (NEUFERT &amp; NBC India standards).
+                Ensure minimum 90cm corridors for primary circulation and 45cm around seating clusters. Never construct without physical laser measurement.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    pl_c1, pl_c2 = st.columns([1.1, 1.2], gap="large")
+
+    with pl_c1:
+        st.markdown("### 📐 Room Boundary Specifications")
+        r_name = st.text_input("Room Identifier / Project Name", value="Master Living Room", key="pl_rname")
+        r_type = st.selectbox("Room Typology", ["Living Room", "Master Bedroom", "Studio Apartment", "Home Office", "Dining Room"], key="pl_rtype")
+        
+        dim_col1, dim_col2, dim_col3 = st.columns(3)
+        with dim_col1:
+            r_len_m = st.number_input("Length (meters)", min_value=1.5, max_value=20.0, value=5.2, step=0.1)
+        with dim_col2:
+            r_wid_m = st.number_input("Width (meters)", min_value=1.5, max_value=20.0, value=3.8, step=0.1)
+        with dim_col3:
+            r_hgt_m = st.number_input("Ceiling Height (m)", min_value=2.0, max_value=6.0, value=2.9, step=0.1)
+
+        room_area_sqm = round(r_len_m * r_wid_m, 2)
+        room_area_sqft = round(room_area_sqm * 10.7639, 1)
+
+        st.markdown(
+            f"""
+            <div style="display: flex; gap: 12px; margin-top: 10px;">
+                <div class="metric-pill">Floor Area: <strong>{room_area_sqm} m² ({room_area_sqft} sq.ft)</strong></div>
+                <div class="metric-pill">Ceiling: <strong>{r_hgt_m}m</strong></div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown("---")
+        st.markdown("### 🛋️ Furniture Inventory")
+
+        if "planner_furniture_items" not in st.session_state:
+            st.session_state.planner_furniture_items = get_furniture_suggestions(r_type)
+
+        # Quick preset load button
+        if st.button("🔄 Reset to Typology Presets"):
+            st.session_state.planner_furniture_items = get_furniture_suggestions(r_type)
+            st.rerun()
+
+        # Display current items
+        for idx, item in enumerate(st.session_state.planner_furniture_items):
+            f_col1, f_col2 = st.columns([3, 1])
+            with f_col1:
+                st.markdown(f"• **{item['name']}** — {item.get('width_cm', 100)}cm × {item.get('depth_cm', 50)}cm ({item.get('clearance_needed_cm', 60)}cm clear)")
+            with f_col2:
+                if st.button("Remove", key=f"del_furn_{idx}"):
+                    st.session_state.planner_furniture_items.pop(idx)
+                    st.rerun()
+
+        # Add furniture form
+        with st.expander("➕ Add Custom Furniture Item"):
+            af_name = st.text_input("Item Name", value="Accent Armchair")
+            af_w = st.number_input("Width (cm)", value=80, step=5)
+            af_d = st.number_input("Depth (cm)", value=85, step=5)
+            af_c = st.number_input("Required Clearance (cm)", value=60, step=5)
+            if st.button("Add Piece to Inventory"):
+                st.session_state.planner_furniture_items.append({
+                    "name": af_name,
+                    "width_cm": int(af_w),
+                    "depth_cm": int(af_d),
+                    "height_cm": 85,
+                    "clearance_needed_cm": int(af_c)
+                })
+                st.rerun()
+
+    with pl_c2:
+        st.markdown("### 🚦 Spatial Ergonomics & Clearance Audit")
+        
+        clearance_results = check_room_clearances(r_len_m, r_wid_m, st.session_state.planner_furniture_items)
+        
+        for cr in clearance_results:
+            st_color = "#3B5E43" if cr["status"] == "pass" else ("#B85C38" if cr["status"] == "warning" else "#725640")
+            st_icon = "✅" if cr["status"] == "pass" else ("⚠️" if cr["status"] == "warning" else "ℹ️")
+            st.markdown(
+                f"""
+                <div class="custom-card" style="padding: 14px 18px; margin-bottom: 12px; border-left: 4px solid {st_color};">
+                    <div style="display: justify; justify-content: space-between; align-items: center;">
+                        <strong style="color: var(--text-primary); font-size: 0.92rem;">{st_icon} {cr['check']}</strong>
+                        <span class="score-badge">Standard: {cr['threshold']}</span>
+                    </div>
+                    <p style="font-size: 0.84rem; color: var(--text-secondary); margin: 6px 0 0 0;">
+                        {cr['message']}
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        st.markdown("---")
+        st.markdown("### 💾 Save & Persist Room Plan")
+        if st.button("💾 Save Spatial Layout to Project", use_container_width=True):
+            save_room_plan(
+                user_id=active_user_id,
+                project_id=st.session_state.project_id,
+                room_name=r_name,
+                room_type=r_type,
+                dimensions={"length_m": r_len_m, "width_m": r_wid_m, "height_m": r_hgt_m, "area_sqm": room_area_sqm},
+                furniture_items=st.session_state.planner_furniture_items,
+                clearance_report=clearance_results
+            )
+            st.success(f"✅ Room plan '{r_name}' successfully saved to database!")
+            st.rerun()
+
+        # Saved plans
+        saved_plans = list_room_plans(active_user_id)
+        if saved_plans:
+            st.markdown("#### 📂 Your Saved Layouts")
+            for sp in saved_plans:
+                p_c1, p_c2 = st.columns([3, 1])
+                with p_c1:
+                    st.markdown(f"**{sp['room_name']}** ({sp['room_type']}) — {sp.get('dimensions', {}).get('area_sqm', 0)} m² • {len(sp.get('furniture_items', []))} items")
+                with p_c2:
+                    if st.button("🗑️", key=f"del_plan_{sp['id']}"):
+                        delete_room_plan(sp["id"], active_user_id)
+                        st.rerun()
+
+
+# ====================================================
+# EXPANSION VIEW 4: RENOVATION SHOPPING ASSISTANT
+# ====================================================
+def render_shopping_view():
+    st.markdown("## 🛒 Renovation Shopping Assistant & Bill of Materials (BOM)")
+    st.caption("Automated project cost estimation in INR (₹) covering coatings, application tools, lighting, and hardware.")
+
+    # Prepare active palette or fallback
+    dummy_palette = PaletteConcept(
+        id="shop_pal_default",
+        name="Sample: Warm Editorial Sanctuary",
+        concept_category="Modern Neutral",
+        harmony_type="Monochromatic",
+        description="Curated sample palette for renovation planning.",
+        atmosphere="Calm & Balanced",
+        primary_wall=ColorSwatch(name="Sandalwood Terracotta", hex="#B85C38", rgb=(184, 92, 56), role="Primary Wall (60%)", percentage=60.0, temperature="warm", luminance=0.49),
+        secondary_wall=ColorSwatch(name="Warm Greige Linen", hex="#D6C5B3", rgb=(214, 197, 179), role="Feature Wall (30%)", percentage=30.0, temperature="neutral", luminance=0.80),
+        accent=ColorSwatch(name="Obsidian Bronze", hex="#30271F", rgb=(48, 39, 31), role="Accent (10%)", percentage=10.0, temperature="warm", luminance=0.17),
+        trim=ColorSwatch(name="Alabaster White", hex="#F7F3EE", rgb=(247, 243, 238), role="Trim & Moulding", percentage=None, temperature="neutral", luminance=0.96),
+        design_rationale="Curated sample concept for project bill of materials.",
+        furniture_flooring_compatibility="Compatible with warm oak and dark bronze fixtures.",
+        heuristic_score=94.0
+    )
+
+    if st.session_state.current_image_bytes is not None:
+        try:
+            an_dict = cached_room_analysis(st.session_state.current_image_bytes)
+            ext_dict = cached_dominant_colors(st.session_state.current_image_bytes)
+            extracted = ExtractedColorAnalysis(**ext_dict)
+            room_an = RoomAnalysisResult(**an_dict)
+            active_p_list = generate_recommended_palettes(extracted, room_an)
+            if active_p_list:
+                dummy_palette = active_p_list[0]
+        except Exception:
+            pass
+
+    shop_c1, shop_c2 = st.columns([1.0, 1.4], gap="large")
+
+    with shop_c1:
+        st.markdown("### 📋 Project Parameters")
+        p_name = st.text_input("Project Name", value=f"{dummy_palette.name} Renovation")
+        p_room_type = st.selectbox("Room Typology", ["Living Room", "Master Bedroom", "Kitchen & Dining", "Executive Study"], index=0)
+        p_wall_sqft = st.number_input("Total Wall Surface Area (sq.ft)", min_value=50.0, max_value=3000.0, value=350.0, step=10.0)
+        p_coats = st.selectbox("Paint System Specification", ["2 Coats over 1 Coat Primer (Recommended)", "3 Coats Premium Luxury Emulsion", "1 Coat Refresh / Maintenance"], index=0)
+        inc_furniture = st.checkbox("Include Architectural Lighting & Decor Recommendations", value=True)
+
+        # Generate shopping data from real mathematical estimation pipeline
+        coats_count = 3 if "3 Coats" in p_coats else (1 if "1 Coat" in p_coats else 2)
+        real_estimate = estimate_paint_quantity(PaintEstimateInput(
+            total_wall_area_sqft=p_wall_sqft,
+            coats=coats_count
+        ))
+
+        shopping_data = generate_renovation_shopping_list(
+            palette=dummy_palette,
+            paint_estimate=real_estimate,
+            room_type=p_room_type,
+            include_furniture=inc_furniture
+        )
+        shopping_data["project_name"] = p_name
+
+        st.markdown(
+            f"""
+            <div class="custom-card" style="padding: 16px; margin-top: 14px;">
+                <h4 style="margin: 0; color: var(--text-primary); font-family: 'Playfair Display', Georgia, serif;">Budget Summary</h4>
+                <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.90rem;">
+                    <span>Essential Coatings &amp; Tools:</span>
+                    <strong>₹{shopping_data['essential_budget_inr']:,.2f}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 0.90rem;">
+                    <span>Optional Lighting &amp; Decor:</span>
+                    <strong>₹{shopping_data['optional_budget_inr']:,.2f}</strong>
+                </div>
+                <div style="border-top: 1px solid var(--border-subtle); margin-top: 10px; padding-top: 10px; display: flex; justify-content: space-between; font-size: 1.05rem; color: var(--accent-primary);">
+                    <strong>Total Estimated Budget:</strong>
+                    <strong>₹{shopping_data['total_budget_inr']:,.2f}</strong>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        # Download & Save Actions
+        md_text = export_shopping_list_markdown(shopping_data)
+        st.download_button("⬇️ Export BOM as Markdown Checklist", md_text, "renovation_shopping_list.md", "text/markdown", use_container_width=True)
+
+        if st.button("💾 Save Shopping List to Project", use_container_width=True):
+            save_shopping_list(
+                user_id=active_user_id,
+                project_id=st.session_state.project_id,
+                list_name=p_name,
+                items=shopping_data["items"],
+                total_budget_inr=shopping_data["total_budget_inr"]
+            )
+            st.success("✅ Renovation shopping list saved to database!")
+            st.rerun()
+
+    with shop_c2:
+        st.markdown("### 🛒 Itemized Bill of Materials")
+        
+        for item in shopping_data["items"]:
+            cat_badge = "🎨" if "Paint" in item["category"] else ("🛠️" if "Tool" in item["category"] else "🛋️")
+            st.markdown(
+                f"""
+                <div class="custom-card" style="padding: 12px 16px; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong style="color: var(--text-primary); font-size: 0.92rem;">{cat_badge} {item['item_name']}</strong>
+                            <div style="font-size: 0.78rem; color: var(--text-secondary);">{item['specification']}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <strong style="color: var(--accent-primary); font-size: 0.95rem;">₹{item['total_price_inr']:,.2f}</strong>
+                            <div style="font-size: 0.74rem; color: var(--text-muted);">{item['quantity']} {item['unit']} @ ₹{item['unit_price_inr']:.0f}</div>
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        # Saved shopping lists
+        saved_lists = list_shopping_lists(active_user_id)
+        if saved_lists:
+            st.markdown("---")
+            st.markdown("#### 📂 Saved Project Bills of Materials")
+            for sl in saved_lists:
+                sl_c1, sl_c2 = st.columns([3, 1])
+                with sl_c1:
+                    st.markdown(f"**{sl['list_name']}** — ₹{sl.get('total_budget_inr', 0):,.2f} ({len(sl.get('items', []))} items)")
+                with sl_c2:
+                    if st.button("🗑️", key=f"del_sl_{sl['id']}"):
+                        delete_shopping_list(sl["id"], active_user_id)
+                        st.rerun()
+
+
+# ====================================================
+# EXPANSION VIEW 5: HOME MAINTENANCE & WALL CONDITION
+# ====================================================
+def render_maintenance_view():
+    st.markdown("## 🛠️ Home Maintenance & Wall Condition Tracker")
+    st.caption("Surface health diagnostics, architectural remediation protocols, and side-by-side condition timeline.")
+
+    maint_tabs = st.tabs([
+        "🔬 Surface Damage Diagnostics",
+        "📸 Condition Comparison (Before & After)",
+        "📋 Maintenance Activity Log & Reminders"
+    ])
+
+    with maint_tabs[0]:
+        st.markdown("### 🔬 Architectural Wall Diagnostics")
+        
+        dia_col1, dia_col2 = st.columns([1.0, 1.3], gap="large")
+        with dia_col1:
+            dmg_type = st.selectbox("Observed Surface Issue", list(DAMAGE_CATEGORIES.keys()), index=1)
+            dmg_sev = st.selectbox("Severity Level", ["Minor / Hairline", "Moderate / Localized", "Severe / Structural"], index=0)
+            
+            diag_eval = evaluate_wall_damage_heuristics(dmg_type, dmg_sev)
+            st.markdown(f"**Urgency Assessment:** <span class='score-badge'>{diag_eval['urgency']}</span>", unsafe_allow_html=True)
+
+        with dia_col2:
+            st.markdown("#### 🛠️ Recommended Remediation Protocol")
+            st.markdown(
+                f"""
+                <div class="custom-card" style="padding: 18px; border-left: 4px solid var(--accent-primary);">
+                    <h4 style="margin: 0 0 8px 0; color: var(--text-primary);">{dmg_type}</h4>
+                    <p style="font-size: 0.90rem; color: var(--text-secondary); line-height: 1.6;">
+                        {diag_eval['treatment_protocol']}
+                    </p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+    with maint_tabs[1]:
+        st.markdown("### 📸 Condition Comparison Over Time")
+        st.caption("Upload an earlier inspection photograph and a current photograph to generate a certified condition comparison.")
+
+        cmp_col1, cmp_col2 = st.columns(2)
+        with cmp_col1:
+            img_before_file = st.file_uploader("Earlier Inspection Photo", type=["jpg", "png", "webp"], key="maint_before")
+            date_before = st.date_input("Earlier Date", key="date_before")
+        with cmp_col2:
+            img_after_file = st.file_uploader("Current Inspection Photo", type=["jpg", "png", "webp"], key="maint_after")
+            date_after = st.date_input("Current Date", key="date_after")
+
+        if img_before_file and img_after_file:
+            pil_b = Image.open(img_before_file).convert("RGB")
+            pil_a = Image.open(img_after_file).convert("RGB")
+            
+            comp_img = create_condition_comparison_image(
+                pil_b, pil_a,
+                label_earlier=f"Inspection: {date_before}",
+                label_later=f"Inspection: {date_after}"
+            )
+            st.image(comp_img, caption="Condition Comparison Sheet", use_container_width=True)
+
+            buf_cmp = io.BytesIO()
+            comp_img.save(buf_cmp, format="PNG")
+            st.download_button("⬇️ Download Condition Comparison Sheet (PNG)", buf_cmp.getvalue(), "condition_comparison.png", "image/png")
+
+    with maint_tabs[2]:
+        st.markdown("### 📋 Log Maintenance Activity")
+        with st.form("log_maint_form"):
+            ml_room = st.text_input("Room Identifier", value="Living Room")
+            ml_act = st.selectbox("Activity Performed", ["Full Wall Repainting", "Touch-up / Patching", "Waterproofing Treatment", "Crack Filling & Sanding", "Routine Inspection"])
+            ml_paint = st.text_input("Paint Brand & Shade Used", value="Asian Paints Royale — Sandalwood Terracotta (HEX #B85C38)")
+            ml_cost = st.number_input("Expense Incurred (₹ INR)", value=3500.0, step=100.0)
+            ml_notes = st.text_area("Observations / Contractor Notes", value="Two coats applied over acrylic sealer. Surface clean.")
+            ml_next = st.selectbox("Schedule Next Inspection In", ["3 Months", "6 Months", "1 Year", "2 Years"])
+
+            if st.form_submit_button("Record Maintenance Activity", use_container_width=True):
+                save_maintenance_record(
+                    user_id=active_user_id,
+                    project_id=st.session_state.project_id,
+                    room_name=ml_room,
+                    activity_type=ml_act,
+                    paint_used=ml_paint,
+                    cost_inr=float(ml_cost),
+                    notes=ml_notes,
+                    next_reminder_due=ml_next
+                )
+                st.success("✅ Maintenance activity recorded in project ledger!")
+                st.rerun()
+
+        st.markdown("---")
+        st.markdown("#### 📜 Historical Maintenance Ledger")
+        records = list_maintenance_records(active_user_id)
+        if not records:
+            st.caption("No maintenance activities logged yet.")
+        else:
+            for rec in records:
+                r_c1, r_c2 = st.columns([3, 1])
+                with r_c1:
+                    st.markdown(
+                        f"""
+                        <div class="custom-card" style="padding: 12px 16px; margin-bottom: 8px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <strong>{rec['room_name']} — {rec['activity_type']}</strong>
+                                <span style="color: var(--accent-primary); font-weight: 700;">₹{rec.get('cost_inr', 0):,.2f}</span>
+                            </div>
+                            <div style="font-size: 0.80rem; color: var(--text-secondary); margin-top: 2px;">
+                                Paint: {rec.get('paint_used', 'N/A')} • Next Due: <strong>{rec.get('next_reminder_due', 'N/A')}</strong>
+                            </div>
+                            <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 2px;">
+                                {rec.get('notes', '')}
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+                with r_c2:
+                    if st.button("🗑️", key=f"del_mrec_{rec['id']}"):
+                        delete_maintenance_record(rec["id"], active_user_id)
+                        st.rerun()
+
+
+# ====================================================
+# EXPANSION VIEW 6: CHROMA AI ASSISTANT
+# ====================================================
+def render_assistant_view():
+    st.markdown("## 💬 Chroma AI Assistant — Contextual Architectural Advisor")
+    st.caption("Interior color science, daylight orientation advice, material synergies, and finish recommendations backed by an architectural knowledge graph.")
+
+    # Contextual status header
+    active_ctx = {
+        "room_type": "Living Room",
+        "detected_style": "Warm Minimalist",
+        "selected_materials": st.session_state.selected_materials,
+        "active_palette": {
+            "name": "Warm Editorial Sanctuary",
+            "concept_category": "monochromatic",
+            "harmony_type": "Monochromatic",
+            "primary_wall": {"name": "Sandalwood Terracotta", "hex": "#B85C38"}
+        }
+    }
+
+    st.markdown(
+        f"""
+        <div class="custom-card" style="padding: 12px 18px; margin-bottom: 16px; border-left: 4px solid var(--accent-primary);">
+            <div style="font-size: 0.80rem; color: var(--text-secondary); display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+                <span>🏛️ <strong>Context Active:</strong></span>
+                <span class="metric-pill">Room: {active_ctx['room_type']}</span>
+                <span class="metric-pill">Palette: {active_ctx['active_palette']['name']} ({active_ctx['active_palette']['primary_wall']['hex']})</span>
+                <span class="metric-pill">Materials: {', '.join(active_ctx['selected_materials'])}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # Chat history display
+    chat_history = get_assistant_history(active_user_id, session_id=st.session_state.project_id)
+
+    # Render previous messages
+    for msg in chat_history:
+        role = msg.get("role", "user")
+        with st.chat_message(role):
+            st.markdown(msg.get("content", ""))
+
+    # Quick suggestion prompt buttons
+    st.markdown("##### 💡 Suggested Questions:")
+    sq_cols = st.columns(3)
+    preset_prompts = [
+        "What trim and ceiling colours complement my dominant wall shade?",
+        "Recommend the best paint finish for this room type.",
+        "How does south-facing daylight affect warm vs cool undertones?"
+    ]
+    
+    selected_prompt = None
+    for idx, (col, pr) in enumerate(zip(sq_cols, preset_prompts)):
+        with col:
+            if st.button(pr, key=f"sq_prompt_{idx}", use_container_width=True):
+                selected_prompt = pr
+
+    # User input
+    user_input = st.chat_input("Ask Chroma Assistant about colors, finishes, materials, or lighting...") or selected_prompt
+
+    if user_input:
+        # Display user message
+        with st.chat_message("user"):
+            st.markdown(user_input)
+
+        save_assistant_message(active_user_id, st.session_state.project_id, "user", user_input)
+
+        # Generate contextual response
+        with st.spinner("Analyzing architectural design guidelines..."):
+            ai_reply = generate_assistant_response(user_input, context=active_ctx)
+
+        # Display and save assistant response
+        with st.chat_message("assistant"):
+            st.markdown(ai_reply)
+
+        save_assistant_message(active_user_id, st.session_state.project_id, "assistant", ai_reply)
+        st.rerun()
+
+    st.markdown("---")
+    if st.button("🗑️ Clear Conversation History"):
+        clear_assistant_history(active_user_id, st.session_state.project_id)
+        st.rerun()
+
+
+# ====================================================
 # VIEW 4: EXPERIMENTAL AI LAB
 # ====================================================
-elif st.session_state.current_view == "🧪 Experimental AI Lab":
+def render_experimental_lab_view():
     st.markdown("## 🧪 Experimental Architectural AI Lab")
     st.caption("Advanced computational design simulations: Daylight, Materials, Swapping, Semantic Walls, and Paint Estimation.")
 
@@ -1077,7 +2156,7 @@ elif st.session_state.current_view == "🧪 Experimental AI Lab":
 # ====================================================
 # VIEW 5: COLOUR HARMONY EXPLORER
 # ====================================================
-elif st.session_state.current_view == "🌈 Harmony Explorer":
+def render_harmony_explorer_view():
     st.markdown("## 🌈 Colour Harmony Explorer")
     st.caption("Deep-dive into 360° chromatic relationships and exact CIELAB perceptual color distances.")
     
@@ -1139,11 +2218,26 @@ elif st.session_state.current_view == "🌈 Harmony Explorer":
                 unsafe_allow_html=True
             )
 
+    st.markdown("#### Monochromatic Airy Tints & Grounded Shades")
+    mono_cols = st.columns(2)
+    for col, mono in zip(mono_cols, harmonies.get("monochromatic", [])):
+        with col:
+            st.markdown(
+                f"""
+                <div class="custom-card">
+                    <div style="background-color: {mono['hex']}; height: 44px; border-radius: 6px; margin-bottom: 6px;"></div>
+                    <strong>{mono['name']}</strong> ({mono['hex']})<br>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">{mono['label']}</span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
 
 # ====================================================
 # VIEW 6: CHROMA MEMORY & DNA
 # ====================================================
-elif st.session_state.current_view == "🧬 Chroma Memory & DNA":
+def render_memory_dna_view():
     st.markdown("## 🧬 Chroma Memory & Chroma DNA")
     st.caption("Personalized design-preference signature and adaptive memory profile.")
 
@@ -1202,7 +2296,7 @@ elif st.session_state.current_view == "🧬 Chroma Memory & DNA":
 # ====================================================
 # VIEW 7: DESIGN TIMELINE
 # ====================================================
-elif st.session_state.current_view == "⏳ Design Timeline":
+def render_timeline_view():
     st.markdown("## ⏳ Design Timeline")
     st.caption("Visual history of design iterations and state snapshots.")
 
@@ -1251,7 +2345,7 @@ elif st.session_state.current_view == "⏳ Design Timeline":
 # ====================================================
 # VIEW 8: SAVED PALETTES & EXPORTS
 # ====================================================
-elif st.session_state.current_view == "📁 Saved Palettes & Exports":
+def render_exports_view():
     st.markdown("## 📁 Saved Palettes Collection & Export Suite")
     st.caption("Locally persisted in SQLite. Multi-user segregated.")
 
@@ -1277,7 +2371,7 @@ elif st.session_state.current_view == "📁 Saved Palettes & Exports":
             )
             render_palette_swatches_horizontal(pal_obj)
 
-            exp_c1, exp_c2, exp_c3, exp_c4, exp_c5 = st.columns([1, 1, 1, 1, 1])
+            exp_c1, exp_c2, exp_c3, exp_c4, exp_c5, exp_c6, exp_c7 = st.columns([1, 1, 1, 1, 1, 1, 1])
             with exp_c1:
                 if st.button("🗑️ Delete", key=f"del_{rec['id']}"):
                     delete_saved_palette(rec['id'], user_id=active_user_id)
@@ -1290,18 +2384,22 @@ elif st.session_state.current_view == "📁 Saved Palettes & Exports":
                 st.download_button("📊 CSV", csv_data, f"{pal_obj.name.lower()}.csv", "text/csv", key=f"dl_c_{rec['id']}")
             with exp_c4:
                 swatch_png = generate_swatch_sheet_png(pal_obj, room_type=rec['room_type'])
-                st.download_button("🖼️ PNG Sheet", swatch_png.getvalue(), f"{pal_obj.name.lower()}_sheet.png", "image/png", key=f"dl_p_{rec['id']}")
+                st.download_button("🖼️ PNG", swatch_png.getvalue(), f"{pal_obj.name.lower()}_sheet.png", "image/png", key=f"dl_p_{rec['id']}")
             with exp_c5:
-                # Text Report
-                dummy_ext = ExtractedColorAnalysis(dominant_colors=[], overall_brightness=0.5, overall_temperature_tendency="neutral", mean_saturation=0.5, neutral_count=1, warm_count=1, cool_count=1, lighting_condition_estimate="Daylight")
-                txt_rep = generate_text_report(pal_obj, None, dummy_ext)
-                st.download_button("📝 Report", txt_rep, f"{pal_obj.name.lower()}_report.txt", "text/plain", key=f"dl_t_{rec['id']}")
+                txt_rep = generate_text_report(pal_obj, room_analysis=None, room_type=rec['room_type'])
+                st.download_button("📝 TXT", txt_rep, f"{pal_obj.name.lower()}_report.txt", "text/plain", key=f"dl_t_{rec['id']}")
+            with exp_c6:
+                md_rep = generate_markdown_report(pal_obj, room_analysis=None, room_type=rec['room_type'])
+                st.download_button("📄 MD", md_rep, f"{pal_obj.name.lower()}_report.md", "text/markdown", key=f"dl_m_{rec['id']}")
+            with exp_c7:
+                pdf_rep = generate_pdf_report(pal_obj, room_analysis=None, room_type=rec['room_type'])
+                st.download_button("📑 PDF", pdf_rep.getvalue(), f"{pal_obj.name.lower()}_report.pdf", "application/pdf", key=f"dl_pdf_{rec['id']}")
 
 
 # ====================================================
 # VIEW 9: SUBSCRIPTION & BILLING (INR PRICING)
 # ====================================================
-elif st.session_state.current_view == "💳 Subscription & Billing":
+def render_subscription_view():
     st.markdown("## 💳 Subscription & Billing Management")
     st.caption("Transparent Indian Rupee (INR) plans, limits, and verified sandbox payment integration.")
 
@@ -1394,9 +2492,84 @@ elif st.session_state.current_view == "💳 Subscription & Billing":
 
 
 # ====================================================
+# EXPANSION VIEW 7: AI PRIVACY SHIELD
+# ====================================================
+def render_privacy_shield_view():
+    st.markdown("## 🛡️ AI Privacy Shield & Data Transparency")
+    st.caption("Complete transparency into edge processing, zero-retention camera feeds, and GDPR-compliant user data ownership.")
+
+    render_privacy_shield_banner()
+
+    p_col1, p_col2 = st.columns(2, gap="large")
+
+    with p_col1:
+        st.markdown("### 🔒 Video & Image Processing Privacy")
+        st.markdown(
+            """
+            <div class="custom-card" style="padding: 18px; margin-bottom: 14px;">
+                <h4 style="margin: 0 0 6px 0; color: var(--accent-primary);">Zero-Retention Live Camera</h4>
+                <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
+                    The WebRTC video pipeline executes entirely in volatile system memory (RAM). Each frame is inspected for architectural features and immediately overwritten. No video is ever recorded, buffered to disk, or sent to an external server.
+                </p>
+                <div class="score-badge" style="background-color: #E8ECE9; color: #3B5E43;">Active: 0 Frames Retained</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            """
+            <div class="custom-card" style="padding: 18px; margin-bottom: 14px;">
+                <h4 style="margin: 0 0 6px 0; color: var(--text-primary);">100% Offline Mode</h4>
+                <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
+                    K-Means clustering, bilateral wall masking, luminance-preserving recolouring, CIELAB Delta E brand matching, and architectural assistant responses run entirely on your local machine using NumPy, SciPy, OpenCV, and scikit-learn.
+                </p>
+                <div class="score-badge">Offline Capable: Yes</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+    with p_col2:
+        st.markdown("### 🇪🇺 Data Ownership & Export (GDPR)")
+        st.markdown(
+            """
+            <div class="custom-card" style="padding: 18px; margin-bottom: 14px;">
+                <h4 style="margin: 0 0 6px 0; color: var(--text-primary);">Export All Your Data</h4>
+                <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
+                    Download a comprehensive JSON archive containing your saved palettes, scanned colours, room plans, shopping lists, maintenance records, and design history.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+        data_bundle = export_user_data_bundle(active_user_id)
+        st.download_button(
+            "⬇️ Download My Data Archive (JSON)",
+            json.dumps(data_bundle, indent=2),
+            f"chroma_data_export_{active_user_id}.json",
+            "application/json",
+            use_container_width=True
+        )
+
+        st.markdown("---")
+        st.markdown("### ⚠️ Account & Data Deletion")
+        st.caption("Permanently purge all your palettes, scanned colors, and activity records from the database.")
+        
+        with st.expander("🚨 Purge All Data / Delete Account"):
+            confirm = st.checkbox("I understand that this action is irreversible.")
+            if st.button("Permanently Purge My Account & Data", disabled=not confirm):
+                delete_user_account_cascade(active_user_id)
+                st.session_state.current_user = None
+                st.success("Your account and all associated data have been permanently deleted.")
+                st.rerun()
+
+
+# ====================================================
 # VIEW 10: USER PROFILE & PREFERENCES
 # ====================================================
-elif st.session_state.current_view == "👤 Profile & Preferences":
+def render_profile_preferences_view():
     st.markdown("## 👤 User Profile & Customization")
     st.caption("Personal design preferences and interface customization.")
 
@@ -1434,7 +2607,7 @@ elif st.session_state.current_view == "👤 Profile & Preferences":
 # ====================================================
 # VIEW 11: ACCOUNT & SECURITY
 # ====================================================
-elif st.session_state.current_view == "🔐 Account & Security":
+def render_account_security_view():
     st.markdown("## 🔐 Account Security & Privacy Controls")
     st.caption("Password management, personal data export (GDPR), and account deletion.")
 
@@ -1482,7 +2655,7 @@ elif st.session_state.current_view == "🔐 Account & Security":
 # ====================================================
 # VIEW 12: SIGN IN / SIGN UP / PASSWORD RESET
 # ====================================================
-elif st.session_state.current_view == "🔑 Sign In / Sign Up":
+def render_auth_view():
     st.markdown("## 🔑 Account Access")
     
     auth_tabs = st.tabs(["Sign In", "Create Account", "Password Recovery"])
@@ -1490,7 +2663,7 @@ elif st.session_state.current_view == "🔑 Sign In / Sign Up":
     with auth_tabs[0]:
         login_email = st.text_input("Email Address", key="login_email")
         login_pwd = st.text_input("Password", type="password", key="login_pwd")
-        rem_me = st.checkbox("Remember this session", value=True)
+        st.checkbox("Remember this session", value=True)
 
         if st.button("Sign In to Chroma Studio", use_container_width=True):
             ok, msg, u_rec = authenticate_user(login_email, login_pwd)
@@ -1540,7 +2713,7 @@ elif st.session_state.current_view == "🔑 Sign In / Sign Up":
 # ====================================================
 # VIEW 13: ARCHITECTURAL DESIGN GUIDE
 # ====================================================
-elif st.session_state.current_view == "❓ Architectural Guide":
+def render_guide_view():
     st.markdown("## ❓ Architectural Design Guidelines & System Status")
     
     st.markdown(
@@ -1560,3 +2733,173 @@ elif st.session_state.current_view == "❓ Architectural Guide":
         - Camera white-balance sensors and JPEG compression alter color balance. Always test physical swatch samples in morning and evening ambient room light.
         """
     )
+
+
+
+# ----------------------------------------------------
+# Global 7-Tab Navigation & View Orchestration
+# ----------------------------------------------------
+tab_studio, tab_palette, tab_materials, tab_estimator, tab_timeline, tab_account, tab_exports = st.tabs([
+    "🎨 Studio & Analysis",
+    "🌈 Palette Lab",
+    "🪨 Materials",
+    "📐 Estimator",
+    "⏳ Timeline",
+    "💳 Account/Plans",
+    "📁 Exports"
+])
+
+# --- TAB 1: STUDIO & ANALYSIS ---
+with tab_studio:
+    st.markdown("### 📷 Room Photograph & Studio Controls")
+    c_up1, c_up2 = st.columns([2.8, 1.2], vertical_alignment="top")
+    with c_up1:
+        uploaded_file = st.file_uploader(
+            "Upload Room Photograph",
+            type=["jpg", "jpeg", "png", "webp"],
+            help="Upload physical room photo (JPG, PNG, WEBP, up to 15MB).",
+            key="studio_room_uploader",
+            label_visibility="collapsed"
+        )
+        if uploaded_file is not None:
+            raw_bytes = uploaded_file.getvalue()
+            if st.session_state.current_image_bytes != raw_bytes:
+                allowed, msg, _ = check_entitlement(active_user_id, "room_analysis")
+                if not allowed:
+                    st.error(f"⚠️ Entitlement Limit: {msg}")
+                else:
+                    st.session_state.current_image_bytes = raw_bytes
+                    st.session_state.selected_palette_id = None
+                    st.session_state.ai_preview_result = None
+                    record_usage_metric(active_user_id, "analysis")
+                    st.rerun()
+
+    with c_up2:
+        if st.session_state.current_image_bytes is not None:
+            if st.button("🗑️ Clear Room Image", key="btn_clear_studio_img", use_container_width=True):
+                st.session_state.current_image_bytes = None
+                st.session_state.image_metadata = None
+                st.session_state.selected_palette_id = None
+                st.session_state.ai_preview_result = None
+                st.rerun()
+        else:
+            if st.button("🖼️ Try Sample Room", key="btn_try_sample_studio", use_container_width=True, help="Load sample architectural room for demonstration"):
+                from pathlib import Path
+                sample_p = Path(__file__).resolve().parent / "data" / "roomie_default_room.jpg"
+                if sample_p.exists():
+                    with open(sample_p, "rb") as sf:
+                        st.session_state.current_image_bytes = sf.read()
+                    st.session_state.selected_palette_id = None
+                    st.session_state.ai_preview_result = None
+                    st.rerun()
+
+    if st.session_state.current_image_bytes is None:
+        st.markdown(
+            """
+            <div class="custom-card card-3d" style="text-align: center; padding: 48px 24px; margin: 24px 0; border: 1.5px dashed rgba(255,255,255,0.15);">
+                <div style="font-size: 2.8rem; margin-bottom: 12px;">🏛️</div>
+                <h3 style="font-family: 'Playfair Display', Georgia, serif; font-size: 1.6rem; color: var(--text-primary); margin-bottom: 8px;">
+                    Upload a room photo to begin
+                </h3>
+                <p style="color: var(--text-secondary); max-width: 540px; margin: 0 auto 20px auto; font-size: 0.92rem; line-height: 1.6;">
+                    Select an interior photograph above or click <strong>Try Sample Room</strong> to explore architectural color extraction, wall segmentation, and interactive 3D palette visualization.
+                </p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        render_showcase_view()
+    else:
+        studio_sub = st.radio(
+            "Studio Sub-Workspace",
+            ["🏛️ 3D & 2D Spatial Canvas", "📹 Live Camera Studio", "🎯 Live Colour Scanner", "💬 Chroma AI Assistant"],
+            horizontal=True,
+            key="studio_sub_mode"
+        )
+        st.markdown('<div class="chroma-hairline" style="margin: 12px 0 20px 0;"></div>', unsafe_allow_html=True)
+        if studio_sub == "🏛️ 3D & 2D Spatial Canvas":
+            render_studio_view()
+        elif studio_sub == "📹 Live Camera Studio":
+            render_live_camera_view()
+        elif studio_sub == "🎯 Live Colour Scanner":
+            render_colour_scanner_view()
+        elif studio_sub == "💬 Chroma AI Assistant":
+            render_assistant_view()
+
+# --- TAB 2: PALETTE LAB ---
+with tab_palette:
+    if st.session_state.current_image_bytes is None:
+        st.info("ℹ️ Please upload a room photograph or click **Try Sample Room** in the Studio tab to analyze color harmonies.")
+    else:
+        pal_sub = st.radio(
+            "Palette Lab Tool",
+            ["🎨 4 Design Concepts & 60-30-10", "🌈 Harmony Explorer", "🏷️ Paint Brand Matcher", "🧪 Swap Playground", "🧬 Chroma Memory & DNA"],
+            horizontal=True,
+            key="pal_lab_mode"
+        )
+        st.markdown('<div class="chroma-hairline" style="margin: 12px 0 20px 0;"></div>', unsafe_allow_html=True)
+        if pal_sub == "🎨 4 Design Concepts & 60-30-10":
+            render_studio_view()
+        elif pal_sub == "🌈 Harmony Explorer":
+            render_harmony_explorer_view()
+        elif pal_sub == "🏷️ Paint Brand Matcher":
+            render_brand_matcher_view()
+        elif pal_sub == "🧪 Swap Playground":
+            render_experimental_lab_view()
+        elif pal_sub == "🧬 Chroma Memory & DNA":
+            render_memory_dna_view()
+
+# --- TAB 3: MATERIALS & LIGHTING ---
+with tab_materials:
+    if st.session_state.current_image_bytes is None:
+        st.info("ℹ️ Please upload a room photograph or click **Try Sample Room** in the Studio tab to evaluate materials and daylight conditions.")
+    else:
+        render_visualization_view()
+
+# --- TAB 4: ESTIMATOR & PLANNING ---
+with tab_estimator:
+    est_sub = st.radio(
+        "Estimator & Planning Tool",
+        ["🎨 Paint Estimator & Budgeting", "📐 Smart Furniture & Room Planner", "🛒 Renovation Shopping", "🛠️ Home Maintenance"],
+        horizontal=True,
+        key="est_planning_mode"
+    )
+    st.markdown('<div class="chroma-hairline" style="margin: 12px 0 20px 0;"></div>', unsafe_allow_html=True)
+    if est_sub == "🎨 Paint Estimator & Budgeting":
+        render_experimental_lab_view()
+    elif est_sub == "📐 Smart Furniture & Room Planner":
+        render_room_planner_view()
+    elif est_sub == "🛒 Renovation Shopping":
+        render_shopping_view()
+    elif est_sub == "🛠️ Home Maintenance":
+        render_maintenance_view()
+
+# --- TAB 5: DESIGN TIMELINE ---
+with tab_timeline:
+    render_timeline_view()
+
+# --- TAB 6: ACCOUNT & PLANS ---
+with tab_account:
+    acc_sub = st.radio(
+        "Account & Plans Section",
+        ["🔑 Sign In / Sign Up", "💳 Subscription & Plans", "🛡️ AI Privacy Shield", "👤 Profile & Preferences", "🔐 Security", "❓ Architectural Guide"],
+        horizontal=True,
+        key="acc_section_mode"
+    )
+    st.markdown('<div class="chroma-hairline" style="margin: 12px 0 20px 0;"></div>', unsafe_allow_html=True)
+    if acc_sub == "🔑 Sign In / Sign Up":
+        render_auth_view()
+    elif acc_sub == "💳 Subscription & Plans":
+        render_subscription_view()
+    elif acc_sub == "🛡️ AI Privacy Shield":
+        render_privacy_shield_view()
+    elif acc_sub == "👤 Profile & Preferences":
+        render_profile_preferences_view()
+    elif acc_sub == "🔐 Security":
+        render_account_security_view()
+    elif acc_sub == "❓ Architectural Guide":
+        render_guide_view()
+
+# --- TAB 7: SAVED PALETTES & EXPORTS ---
+with tab_exports:
+    render_exports_view()

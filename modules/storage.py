@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional
 from contextlib import contextmanager
 
-from config.settings import DB_PATH, SUBSCRIPTION_PLANS
-from models.schemas import PaletteConcept, PreferenceSettings, UserProfile, UserSubscription, UsageRecord
+from config.settings import DB_PATH
+from models.schemas import PaletteConcept, PreferenceSettings
 
 
 @contextmanager
@@ -183,11 +183,97 @@ def init_db(db_path: str = DB_PATH) -> None:
             )
         """)
 
+        # Scanned colors table (Live Color Scanner)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scanned_colors (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                hex TEXT NOT NULL,
+                rgb_json TEXT NOT NULL,
+                hsv_json TEXT NOT NULL,
+                lab_json TEXT NOT NULL,
+                temperature TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                notes TEXT DEFAULT '',
+                source TEXT DEFAULT 'live_camera',
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        """)
+
+        # Room plans table (Smart Furniture & Room Planner)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS room_plans (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                room_type TEXT NOT NULL,
+                length_m REAL NOT NULL,
+                width_m REAL NOT NULL,
+                height_m REAL NOT NULL,
+                furniture_json TEXT DEFAULT '[]',
+                clearances_json TEXT DEFAULT '[]',
+                notes TEXT DEFAULT '',
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        """)
+
+        # Renovation shopping lists table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS shopping_lists (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                project_name TEXT NOT NULL,
+                items_json TEXT NOT NULL,
+                total_budget_inr REAL DEFAULT 0.0,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        """)
+
+        # Home maintenance logs & reminders table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS maintenance_records (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                room_name TEXT NOT NULL,
+                photo_data TEXT DEFAULT '',
+                damage_type TEXT DEFAULT 'None',
+                severity TEXT DEFAULT 'Low',
+                notes TEXT DEFAULT '',
+                maintenance_activity TEXT DEFAULT '',
+                reminder_date TEXT DEFAULT '',
+                is_resolved INTEGER DEFAULT 0,
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        """)
+
+        # Chroma AI Assistant messages table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS assistant_messages (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                context_json TEXT DEFAULT '{}',
+                timestamp TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        """)
+
         # Create indexes for fast querying
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_palettes_user ON saved_palettes(user_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_timeline_user_proj ON design_timeline(user_id, project_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_usage_user_month ON usage_records(user_id, month_key)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts(email, timestamp)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_scanned_colors_user ON scanned_colors(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_room_plans_user ON room_plans(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_shopping_lists_user ON shopping_lists(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_maintenance_records_user ON maintenance_records(user_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_assistant_user_session ON assistant_messages(user_id, session_id)")
 
         conn.commit()
 
@@ -647,3 +733,429 @@ def list_saved_preferences_presets(db_path: str = DB_PATH, user_id: Optional[str
         }
         for r in rows
     ]
+
+
+# ----------------------------------------------------
+# Scanned Colors Storage (Live Color Scanner)
+# ----------------------------------------------------
+def save_scanned_color(
+    user_id: str,
+    color_data: Dict[str, Any],
+    db_path: str = DB_PATH
+) -> str:
+    """Save a live scanned color swatch into the user's personal Chroma library."""
+    init_db(db_path)
+    scan_id = f"col_{uuid.uuid4().hex[:10]}"
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO scanned_colors (
+                id, user_id, name, hex, rgb_json, hsv_json, lab_json, temperature, timestamp, notes, source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                scan_id,
+                user_id,
+                color_data.get("name", "Custom Shade"),
+                color_data.get("hex", "#000000").upper(),
+                json.dumps(color_data.get("rgb", (0, 0, 0))),
+                json.dumps(color_data.get("hsv", (0, 0, 0))),
+                json.dumps(color_data.get("lab", (0, 0, 0))),
+                color_data.get("temperature", "neutral"),
+                now_str,
+                color_data.get("notes", ""),
+                color_data.get("source", "live_camera")
+            )
+        )
+        conn.commit()
+    return scan_id
+
+
+def list_scanned_colors(user_id: str, db_path: str = DB_PATH) -> List[Dict[str, Any]]:
+    """List scanned colors in reverse chronological order for a user."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM scanned_colors WHERE user_id = ? ORDER BY timestamp DESC",
+            (user_id,)
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "id": r["id"],
+            "user_id": r["user_id"],
+            "name": r["name"],
+            "hex": r["hex"],
+            "rgb": tuple(json.loads(r["rgb_json"])),
+            "hsv": tuple(json.loads(r["hsv_json"])),
+            "lab": tuple(json.loads(r["lab_json"])),
+            "temperature": r["temperature"],
+            "timestamp": r["timestamp"],
+            "notes": r["notes"],
+            "source": r["source"]
+        }
+        for r in rows
+    ]
+
+
+def delete_scanned_color(color_id: str, user_id: str, db_path: str = DB_PATH) -> bool:
+    """Delete a scanned color, verifying user ownership."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM scanned_colors WHERE id = ? AND user_id = ?",
+            (color_id, user_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+# ----------------------------------------------------
+# Room Plans Storage (Smart Furniture & Room Planner)
+# ----------------------------------------------------
+def save_room_plan(
+    user_id: str,
+    plan_data: Dict[str, Any],
+    db_path: str = DB_PATH
+) -> str:
+    """Save an architectural room layout and furniture placement plan."""
+    init_db(db_path)
+    plan_id = plan_data.get("id") or f"plan_{uuid.uuid4().hex[:10]}"
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO room_plans (
+                id, user_id, name, room_type, length_m, width_m, height_m,
+                furniture_json, clearances_json, notes, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                room_type = excluded.room_type,
+                length_m = excluded.length_m,
+                width_m = excluded.width_m,
+                height_m = excluded.height_m,
+                furniture_json = excluded.furniture_json,
+                clearances_json = excluded.clearances_json,
+                notes = excluded.notes,
+                timestamp = excluded.timestamp
+            """,
+            (
+                plan_id,
+                user_id,
+                plan_data.get("name", "New Room Layout"),
+                plan_data.get("room_type", "Living Room"),
+                float(plan_data.get("length_m", 5.0)),
+                float(plan_data.get("width_m", 4.0)),
+                float(plan_data.get("height_m", 2.8)),
+                json.dumps(plan_data.get("furniture", [])),
+                json.dumps(plan_data.get("clearances", [])),
+                plan_data.get("notes", ""),
+                now_str
+            )
+        )
+        conn.commit()
+    return plan_id
+
+
+def list_room_plans(user_id: str, db_path: str = DB_PATH) -> List[Dict[str, Any]]:
+    """List all saved room layouts for a user."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM room_plans WHERE user_id = ? ORDER BY timestamp DESC",
+            (user_id,)
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "id": r["id"],
+            "user_id": r["user_id"],
+            "name": r["name"],
+            "room_type": r["room_type"],
+            "length_m": r["length_m"],
+            "width_m": r["width_m"],
+            "height_m": r["height_m"],
+            "furniture": json.loads(r["furniture_json"] or "[]"),
+            "clearances": json.loads(r["clearances_json"] or "[]"),
+            "notes": r["notes"],
+            "timestamp": r["timestamp"]
+        }
+        for r in rows
+    ]
+
+
+def delete_room_plan(plan_id: str, user_id: str, db_path: str = DB_PATH) -> bool:
+    """Delete a room plan with user ownership validation."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM room_plans WHERE id = ? AND user_id = ?",
+            (plan_id, user_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+# ----------------------------------------------------
+# Renovation Shopping Lists Storage
+# ----------------------------------------------------
+def save_shopping_list(
+    user_id: str,
+    shopping_data: Dict[str, Any],
+    db_path: str = DB_PATH
+) -> str:
+    """Save or update a project renovation shopping list."""
+    init_db(db_path)
+    list_id = shopping_data.get("id") or f"shop_{uuid.uuid4().hex[:10]}"
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO shopping_lists (id, user_id, project_name, items_json, total_budget_inr, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                project_name = excluded.project_name,
+                items_json = excluded.items_json,
+                total_budget_inr = excluded.total_budget_inr,
+                timestamp = excluded.timestamp
+            """,
+            (
+                list_id,
+                user_id,
+                shopping_data.get("project_name", "Room Renovation"),
+                json.dumps(shopping_data.get("items", [])),
+                float(shopping_data.get("total_budget_inr", 0.0)),
+                now_str
+            )
+        )
+        conn.commit()
+    return list_id
+
+
+def list_shopping_lists(user_id: str, db_path: str = DB_PATH) -> List[Dict[str, Any]]:
+    """List all renovation shopping lists for user."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM shopping_lists WHERE user_id = ? ORDER BY timestamp DESC",
+            (user_id,)
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "id": r["id"],
+            "user_id": r["user_id"],
+            "project_name": r["project_name"],
+            "items": json.loads(r["items_json"] or "[]"),
+            "total_budget_inr": r["total_budget_inr"],
+            "timestamp": r["timestamp"]
+        }
+        for r in rows
+    ]
+
+
+def delete_shopping_list(list_id: str, user_id: str, db_path: str = DB_PATH) -> bool:
+    """Delete a renovation shopping list with user verification."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM shopping_lists WHERE id = ? AND user_id = ?",
+            (list_id, user_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+# ----------------------------------------------------
+# Home Maintenance Storage & Reminders
+# ----------------------------------------------------
+def save_maintenance_record(
+    user_id: str,
+    record_data: Dict[str, Any],
+    db_path: str = DB_PATH
+) -> str:
+    """Save an inspection photograph, damage note, or maintenance activity."""
+    init_db(db_path)
+    rec_id = record_data.get("id") or f"maint_{uuid.uuid4().hex[:10]}"
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO maintenance_records (
+                id, user_id, room_name, photo_data, damage_type, severity,
+                notes, maintenance_activity, reminder_date, is_resolved, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                room_name = excluded.room_name,
+                photo_data = excluded.photo_data,
+                damage_type = excluded.damage_type,
+                severity = excluded.severity,
+                notes = excluded.notes,
+                maintenance_activity = excluded.maintenance_activity,
+                reminder_date = excluded.reminder_date,
+                is_resolved = excluded.is_resolved,
+                timestamp = excluded.timestamp
+            """,
+            (
+                rec_id,
+                user_id,
+                record_data.get("room_name", "Living Room"),
+                record_data.get("photo_data", ""),
+                record_data.get("damage_type", "None"),
+                record_data.get("severity", "Low"),
+                record_data.get("notes", ""),
+                record_data.get("maintenance_activity", ""),
+                record_data.get("reminder_date", ""),
+                1 if record_data.get("is_resolved") else 0,
+                now_str
+            )
+        )
+        conn.commit()
+    return rec_id
+
+
+def list_maintenance_records(user_id: str, db_path: str = DB_PATH) -> List[Dict[str, Any]]:
+    """List all maintenance logs for a user."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM maintenance_records WHERE user_id = ? ORDER BY timestamp DESC",
+            (user_id,)
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "id": r["id"],
+            "user_id": r["user_id"],
+            "room_name": r["room_name"],
+            "photo_data": r["photo_data"],
+            "damage_type": r["damage_type"],
+            "severity": r["severity"],
+            "notes": r["notes"],
+            "maintenance_activity": r["maintenance_activity"],
+            "reminder_date": r["reminder_date"],
+            "is_resolved": bool(r["is_resolved"]),
+            "timestamp": r["timestamp"]
+        }
+        for r in rows
+    ]
+
+
+def delete_maintenance_record(rec_id: str, user_id: str, db_path: str = DB_PATH) -> bool:
+    """Delete a maintenance log entry."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM maintenance_records WHERE id = ? AND user_id = ?",
+            (rec_id, user_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+# ----------------------------------------------------
+# Chroma AI Assistant Conversation Storage
+# ----------------------------------------------------
+def save_assistant_message(
+    user_id: str,
+    session_id: str,
+    role: str,
+    content: str,
+    context_data: Optional[Dict[str, Any]] = None,
+    db_path: str = DB_PATH
+) -> str:
+    """Persist an assistant or user conversation message with contextual metadata."""
+    init_db(db_path)
+    msg_id = f"msg_{uuid.uuid4().hex[:10]}"
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO assistant_messages (id, user_id, session_id, role, content, context_json, timestamp)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                msg_id,
+                user_id,
+                session_id,
+                role,
+                content,
+                json.dumps(context_data or {}),
+                now_str
+            )
+        )
+        conn.commit()
+    return msg_id
+
+
+def get_assistant_history(
+    user_id: str,
+    session_id: str,
+    limit: int = 50,
+    db_path: str = DB_PATH
+) -> List[Dict[str, Any]]:
+    """Retrieve chronologically ordered message history for a user chat session."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT * FROM assistant_messages
+            WHERE user_id = ? AND session_id = ?
+            ORDER BY timestamp ASC
+            LIMIT ?
+            """,
+            (user_id, session_id, limit)
+        )
+        rows = cursor.fetchall()
+
+    return [
+        {
+            "id": r["id"],
+            "role": r["role"],
+            "content": r["content"],
+            "context": json.loads(r["context_json"] or "{}"),
+            "timestamp": r["timestamp"]
+        }
+        for r in rows
+    ]
+
+
+def clear_assistant_history(
+    user_id: str,
+    session_id: str,
+    db_path: str = DB_PATH
+) -> None:
+    """Clear conversation history for a given session."""
+    init_db(db_path)
+    with get_db_connection(db_path) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM assistant_messages WHERE user_id = ? AND session_id = ?",
+            (user_id, session_id)
+        )
+        conn.commit()

@@ -1,6 +1,5 @@
 """Chroma DNA: Deterministic personal design signature generator."""
-from typing import Dict, Any, List
-from models.schemas import ChromaDNA, ColorSwatch, UserProfile
+from models.schemas import ChromaDNA, ColorSwatch
 from modules.chroma_memory import get_chroma_memory
 from modules.storage import get_user_profile, DB_PATH
 

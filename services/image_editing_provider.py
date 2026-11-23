@@ -1,5 +1,4 @@
 """AI image generation and editing provider for enhanced room previews."""
-import os
 import io
 import base64
 from typing import Dict, Any, Optional, Tuple

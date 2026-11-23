@@ -1,6 +1,5 @@
 """Smart Paint Estimator: Practical mathematical room paint quantity and cost estimator."""
 import math
-from typing import Dict, Any, Optional
 from models.schemas import PaintEstimateInput, PaintEstimateResult
 
 STANDARD_DOOR_AREA_SQM = 1.89   # 0.9m x 2.1m standard interior doorway
@@ -13,16 +12,24 @@ def estimate_paint_quantity(inputs: PaintEstimateInput) -> PaintEstimateResult:
     Calculate practical paint requirements from geometric room measurements.
     Strictly rule-based calculations without fabricated prices or secret formulas.
     """
-    perimeter = 2.0 * (inputs.room_length_meters + inputs.room_width_meters)
-    gross_wall_area = perimeter * inputs.wall_height_meters
-    
-    doors_deduction = inputs.num_doors * STANDARD_DOOR_AREA_SQM
-    windows_deduction = inputs.num_windows * STANDARD_WINDOW_AREA_SQM
-    total_deductions = doors_deduction + windows_deduction
-    
+    effective_coats = inputs.num_coats if inputs.num_coats is not None else inputs.coats
+
+    if inputs.total_wall_area_sqft is not None and inputs.total_wall_area_sqft > 0:
+        # Direct sqft conversion (1 sqft ≈ 0.092903 sqm)
+        gross_wall_area = inputs.total_wall_area_sqft * 0.092903
+        doors_deduction = inputs.num_doors * STANDARD_DOOR_AREA_SQM
+        windows_deduction = inputs.num_windows * STANDARD_WINDOW_AREA_SQM
+        total_deductions = doors_deduction + windows_deduction
+    else:
+        perimeter = 2.0 * (inputs.room_length_meters + inputs.room_width_meters)
+        gross_wall_area = perimeter * inputs.wall_height_meters
+        doors_deduction = inputs.num_doors * STANDARD_DOOR_AREA_SQM
+        windows_deduction = inputs.num_windows * STANDARD_WINDOW_AREA_SQM
+        total_deductions = doors_deduction + windows_deduction
+
     # Net wall surface to be painted
     net_wall_area = max(0.0, gross_wall_area - total_deductions)
-    total_coated_area = net_wall_area * inputs.coats
+    total_coated_area = net_wall_area * effective_coats
     
     # Raw litres required
     coverage = max(1.0, inputs.coverage_sqm_per_liter)

@@ -2,19 +2,36 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
 
-# Environment variables
+# Environment variables & secrets
 .env
 .env.local
+.env.*.local
+frontend/.env.local
 
-# SQLite Database & Storage
+# Databases & local storage
 data/*.db
 data/*.sqlite3
+*.db
+*.sqlite
+*.sqlite3
+
+# Node & Next.js
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/test-results/
+frontend/playwright-report/
 
 # Test caches & coverage
 .pytest_cache/
 .coverage
 htmlcov/
+.playwright/
 
 # Editor / OS files
 .vscode/

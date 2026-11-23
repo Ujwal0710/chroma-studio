@@ -1,13 +1,12 @@
 """Image validation, sanitation, and EXIF orientation handling."""
 import io
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any
 from PIL import Image, ImageOps
 
 from config.settings import (
     MAX_IMAGE_SIZE_BYTES,
     MAX_IMAGE_SIZE_MB,
     ALLOWED_EXTENSIONS,
-    ALLOWED_MIME_TYPES,
     PROCESSING_MAX_DIMENSION
 )
 

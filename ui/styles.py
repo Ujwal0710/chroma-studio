@@ -1,164 +1,213 @@
-"""CSS styles and Design System tokens for CHROMA STUDIO AI."""
-from typing import Dict, Any
-try:
-    from config.settings import LIGHT_THEME_TOKENS, DARK_THEME_TOKENS, APP_NAME, APP_TAGLINE
-except ImportError:
-    import config.settings as _settings
-    LIGHT_THEME_TOKENS = getattr(_settings, "LIGHT_THEME_TOKENS", {})
-    DARK_THEME_TOKENS = getattr(_settings, "DARK_THEME_TOKENS", {})
-    APP_NAME = getattr(_settings, "APP_NAME", "CHROMA STUDIO AI")
-    APP_TAGLINE = getattr(_settings, "APP_TAGLINE", "Intelligent Architectural Colour & Interior Design Workspace")
+"""Chroma Studio AI Unified Editorial Design System & Styling Engine (Dark-Only).
+
+Visual Identity:
+- Deep Obsidian & Smoked Charcoal surfaces (#121411 / #1B1E19 / #222520)
+- Warm Ivory typography (#F4F1EA / #B0AEA5) with WCAG AA compliance
+- Warm Terracotta & Amber accents (#B85C38 / #A68668)
+- Editorial Typography: Playfair Display + Plus Jakarta Sans + Space Grotesk
+- Full elimination of sidebar, centered 1200px max-width layout
+"""
+
+CHROMA_DARK_TOKENS = {
+    "background": "#121411",        # Deep Obsidian Canvas
+    "surface": "#1B1E19",           # Architectural Charcoal Panel
+    "surface_subtle": "#242822",    # Smoked Granite Layer
+    "surface_raised": "#2D322B",    # Elevated Surface
+    "primary_text": "#F4F1EA",      # Warm Ivory (AAA Contrast ~14.5:1)
+    "secondary_text": "#B0AEA5",    # Warm Taupe Sand (AA Contrast ~6.8:1)
+    "muted_text": "#828076",        # Ash Mineral
+    "primary_accent": "#B85C38",    # Warm Terracotta Amber
+    "secondary_accent": "#A68668",  # Aged Oak
+    "botanical_sage": "#5B8565",    # Forest Sage
+    "subtle_border": "#2E332B",     # Muted Obsidian Border
+    "hairline": "rgba(244, 241, 234, 0.08)",
+    "success": "#5B8565",
+    "warning": "#D49359",
+    "danger": "#C45B5B",
+    "badge_bg": "#242822"
+}
+
+# Backwards compatibility aliases
+CHROMA_LIGHT_TOKENS = CHROMA_DARK_TOKENS
+ROOMIE_LIGHT_TOKENS = CHROMA_DARK_TOKENS
+ROOMIE_DARK_TOKENS = CHROMA_DARK_TOKENS
+LIGHT_THEME_TOKENS = CHROMA_DARK_TOKENS
+DARK_THEME_TOKENS = CHROMA_DARK_TOKENS
+DESIGN_TOKENS = CHROMA_DARK_TOKENS
 
 
+def get_theme_css(theme: str = "dark") -> str:
+    """Generate dynamic CSS injected into Streamlit embodying the dark-only editorial design system."""
+    tokens = CHROMA_DARK_TOKENS
 
-def get_theme_css(theme: str = "light") -> str:
-    """Generate dynamic CSS injected into Streamlit supporting light and dark themes."""
-    tokens = DARK_THEME_TOKENS if theme == "dark" else LIGHT_THEME_TOKENS
-    is_dark = (theme == "dark")
-    
-    card_bg = tokens["surface"]
-    main_bg = tokens["background"]
-    text_primary = tokens["primary_text"]
-    text_secondary = tokens["secondary_text"]
-    accent_primary = tokens["primary_accent"]
-    accent_secondary = tokens["secondary_accent"]
-    border_subtle = tokens["subtle_border"]
-    
     return f"""
 <style>
-/* ----------------------------------------------------
-   CHROMA STUDIO AI: EDITORIAL DESIGN SYSTEM
-   Theme: {theme.upper()}
----------------------------------------------------- */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap');
+/* --------------------------------------------------------------------------
+   CHROMA STUDIO AI — DARK-ONLY ARCHITECTURAL DESIGN SYSTEM (1200px Centered)
+-------------------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 :root {{
-    --bg-main: {main_bg};
-    --surface: {card_bg};
-    --text-primary: {text_primary};
-    --text-secondary: {text_secondary};
-    --accent-primary: {accent_primary};
-    --accent-secondary: {accent_secondary};
-    --border-subtle: {border_subtle};
-    --shadow-soft: {'0 4px 20px rgba(0, 0, 0, 0.35)' if is_dark else '0 4px 20px rgba(48, 39, 31, 0.05)'};
-    --shadow-hover: {'0 8px 30px rgba(0, 0, 0, 0.5)' if is_dark else '0 8px 28px rgba(48, 39, 31, 0.12)'};
+    --bg-main: {tokens["background"]};
+    --surface: {tokens["surface"]};
+    --surface-subtle: {tokens["surface_subtle"]};
+    --surface-raised: {tokens["surface_raised"]};
+    --text-primary: {tokens["primary_text"]};
+    --text-secondary: {tokens["secondary_text"]};
+    --text-muted: {tokens["muted_text"]};
+    --accent-primary: {tokens["primary_accent"]};
+    --accent-secondary: {tokens["secondary_accent"]};
+    --border-subtle: {tokens["subtle_border"]};
+    --hairline: {tokens["hairline"]};
+    --badge-bg: {tokens["badge_bg"]};
+    --radius-container: 20px;
+    --radius-card: 14px;
+    --radius-btn: 8px;
+    --radius-pill: 999px;
+    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.25);
+    --shadow-hover: 0 12px 30px rgba(0, 0, 0, 0.40);
 }}
 
-/* Overall page background */
+/* Phase 1: Permanently hide left sidebar and all collapse triggers */
+[data-testid="stSidebar"],
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"],
+section[data-testid="stSidebar"] {{
+    display: none !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    visibility: hidden !important;
+}}
+
+/* Centered Main Area — Max Width 1200px */
+.block-container {{
+    max-width: 1200px !important;
+    padding-top: 1.2rem !important;
+    padding-bottom: 3.5rem !important;
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}}
+
+/* Base Canvas */
 .stApp {{
     background-color: var(--bg-main) !important;
     color: var(--text-primary) !important;
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    letter-spacing: -0.01em;
 }}
 
-/* Custom Header banner */
-.brand-header {{
-    background: {'linear-gradient(135deg, #222520 0%, #171916 100%)' if is_dark else 'linear-gradient(135deg, #FFFCF7 0%, #F5F0E8 100%)'};
-    border: 1px solid var(--border-subtle);
-    border-radius: 12px;
-    padding: 24px 32px;
-    margin-bottom: 24px;
-    box-shadow: var(--shadow-soft);
+/* Typography Hierarchy */
+h1, h2, h3 {{
+    font-family: 'Playfair Display', Georgia, serif !important;
+    color: var(--text-primary) !important;
+    font-weight: 700 !important;
+    letter-spacing: -0.02em;
+}}
+
+h4, h5, h6 {{
+    font-family: 'Space Grotesk', 'Plus Jakarta Sans', sans-serif !important;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+}}
+
+p, span, label, li {{
+    color: var(--text-primary);
+}}
+
+/* Top Architectural Header */
+.chroma-top-header {{
     display: flex;
     justify-content: space-between;
     align-items: center;
-    transition: all 0.3s ease;
+    padding: 18px 24px;
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-card);
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-soft);
 }}
 
-.brand-title {{
+.chroma-brand {{
     font-family: 'Playfair Display', Georgia, serif;
-    font-size: 2.15rem;
+    font-size: 1.55rem;
     font-weight: 700;
     color: var(--text-primary);
-    margin: 0 0 4px 0;
-    letter-spacing: -0.5px;
-}}
-
-.brand-subtitle {{
-    font-size: 0.96rem;
-    color: var(--text-secondary);
-    margin: 0;
-    font-weight: 400;
-}}
-
-/* Cards with smooth hover elevation */
-.custom-card {{
-    background-color: var(--surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 18px;
-    box-shadow: var(--shadow-soft);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}}
-
-.custom-card:hover {{
-    box-shadow: var(--shadow-hover);
-    border-color: var(--accent-secondary);
-}}
-
-.card-title {{
-    font-family: 'Playfair Display', Georgia, serif;
-    font-size: 1.35rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-top: 0;
-    margin-bottom: 12px;
-    border-bottom: 1px solid var(--border-subtle);
-    padding-bottom: 8px;
-}}
-
-/* Palette Card */
-.palette-card {{
-    background-color: var(--surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: 12px;
-    padding: 22px;
-    margin-bottom: 24px;
-    box-shadow: var(--shadow-soft);
-    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}}
-
-.palette-card:hover {{
-    transform: translateY(-2px);
-    border-color: var(--accent-secondary);
-    box-shadow: var(--shadow-hover);
-}}
-
-.palette-header {{
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 14px;
+    align-items: baseline;
+    gap: 8px;
 }}
 
-.palette-title {{
-    font-family: 'Playfair Display', Georgia, serif;
-    font-size: 1.35rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
-}}
-
-.score-badge {{
-    background-color: {'#2A2E27' if is_dark else '#F0E8DD'};
+.chroma-brand span {{
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.70rem;
+    font-weight: 800;
     color: var(--accent-primary);
-    font-weight: 600;
-    font-size: 0.85rem;
-    padding: 4px 12px;
-    border-radius: 20px;
-    border: 1px solid var(--border-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
 }}
 
-/* Color strip and animated swatches */
-.swatch-strip {{
+.chroma-header-meta {{
     display: flex;
-    border-radius: 8px;
-    overflow: hidden;
-    height: 74px;
-    margin-bottom: 14px;
+    align-items: center;
+    gap: 12px;
+}}
+
+/* Reusable Architectural Card & 3D Interactive Elevation */
+.custom-card, .card-3d {{
+    background-color: var(--surface);
     border: 1px solid var(--border-subtle);
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    border-radius: var(--radius-card);
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.28s ease;
+    position: relative;
+    overflow: hidden;
+}}
+
+.custom-card::before, .card-3d::before {{
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(244,241,234,0) 0%, rgba(244,241,234,0.18) 50%, rgba(244,241,234,0) 100%);
+    pointer-events: none;
+}}
+
+.custom-card:hover, .card-3d:hover {{
+    transform: translateY(-3px) perspective(1000px) rotateX(1.2deg);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+    border-color: rgba(184, 92, 56, 0.45);
+}}
+
+/* Tactile 3D Physical Swatch Chip */
+.swatch-chip-3d {{
+    border-radius: 10px;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.25), inset 0 -2px 3px rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+}}
+
+.swatch-chip-3d:hover {{
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.45), inset 0 1px 2px rgba(255, 255, 255, 0.35);
+}}
+
+/* 3D Volumetric 60-30-10 Swatch Strip */
+.swatch-strip, .swatch-strip-3d {{
+    display: flex;
+    border-radius: 12px;
+    overflow: hidden;
+    height: 60px;
+    margin-bottom: 16px;
+    border: 1px solid var(--border-subtle);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.30);
 }}
 
 .swatch-segment {{
@@ -166,140 +215,237 @@ def get_theme_css(theme: str = "light") -> str:
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    padding: 6px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: #FFFFFF;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
-    transition: flex 0.25s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
-    cursor: default;
+    padding: 6px 12px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    transition: flex 0.25s ease, filter 0.2s ease;
+    position: relative;
 }}
 
 .swatch-segment:hover {{
-    flex: 1.45;
-    filter: brightness(1.08);
+    filter: brightness(1.1);
 }}
 
-/* Individual Swatch Box */
-.swatch-box {{
-    display: inline-block;
-    width: 24px;
-    height: 24px;
-    border-radius: 4px;
-    border: 1px solid rgba(0, 0, 0, 0.15);
-    vertical-align: middle;
-    margin-right: 8px;
+.swatch-segment::after {{
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 1px;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.25);
 }}
 
-/* Metric pills */
-.metric-row {{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 14px;
+/* Badges & Metric Pills */
+.score-badge {{
+    background-color: var(--badge-bg);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 0.80rem;
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-subtle);
+    font-family: 'Space Grotesk', monospace;
 }}
 
 .metric-pill {{
-    background: {'#1D201C' if is_dark else '#F7F3EC'};
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-size: 0.82rem;
+    background: var(--surface-subtle);
+    padding: 6px 14px;
+    border-radius: var(--radius-pill);
+    font-size: 0.80rem;
     color: var(--text-secondary);
     border: 1px solid var(--border-subtle);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }}
 
 .metric-pill strong {{
     color: var(--text-primary);
+    font-weight: 700;
 }}
 
-/* Plan Badge */
+/* Plan Badges */
 .plan-badge {{
     display: inline-block;
-    padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 0.75rem;
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.08em;
 }}
 
-.plan-free {{ background: {'#2A2E27' if is_dark else '#E8E3D8'}; color: var(--text-secondary); }}
-.plan-plus {{ background: {'#3E3224' if is_dark else '#FBEBD9'}; color: var(--accent-secondary); }}
-.plan-pro {{ background: {'#362B21' if is_dark else '#EADCCF'}; color: var(--accent-primary); }}
+.plan-free {{ background: #242E26; color: #78B085; border: 1px solid #3B5E43; }}
+.plan-plus {{ background: #352820; color: #DDA384; border: 1px solid #B85C38; }}
+.plan-pro {{ background: #2E2822; color: #E0C09E; border: 1px solid #A68668; }}
 
-/* Primary & Action Buttons */
+/* 3D Elevated Buttons */
 .stButton>button {{
     background-color: var(--accent-primary) !important;
-    color: {'#171916' if is_dark else '#FFFFFF'} !important;
+    color: #FFFFFF !important;
     border: 1px solid var(--accent-primary) !important;
-    border-radius: 6px !important;
+    border-radius: var(--radius-btn) !important;
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
     font-weight: 600 !important;
-    font-size: 0.9rem !important;
-    padding: 8px 18px !important;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    font-size: 0.88rem !important;
+    letter-spacing: 0.02em !important;
+    padding: 10px 22px !important;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
 }}
 
 .stButton>button:hover {{
-    opacity: 0.9 !important;
-    transform: translateY(-1px) !important;
+    background-color: #D47B57 !important;
+    border-color: #D47B57 !important;
+    color: #FFFFFF !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 24px rgba(184, 92, 56, 0.40) !important;
 }}
 
-/* Secondary Action / Outline Buttons */
-.secondary-btn>button {{
-    background-color: transparent !important;
+.stButton>button:active {{
+    transform: translateY(1px) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+}}
+
+/* Secondary / Outline Buttons */
+.stButton>button[kind="secondary"] {{
+    background-color: var(--surface-subtle) !important;
     color: var(--text-primary) !important;
     border: 1px solid var(--border-subtle) !important;
 }}
 
-/* Tabs Styling */
+.stButton>button[kind="secondary"]:hover {{
+    border-color: var(--accent-primary) !important;
+    background-color: var(--surface-raised) !important;
+}}
+
+/* Pure Dark Mode Surfaces for Native Streamlit Widgets (No light surfaces anywhere) */
+.stSelectbox>div>div, 
+.stTextInput>div>div, 
+.stNumberInput>div>div, 
+.stTextArea>div>div, 
+.stDateInput>div>div {{
+    background-color: var(--surface) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-subtle) !important;
+    border-radius: 8px !important;
+}}
+
+/* Expanders */
+.streamlit-expanderHeader, 
+details>summary {{
+    background-color: var(--surface) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+}}
+
+.streamlit-expanderContent, 
+details[open]>div {{
+    background-color: var(--surface) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-top: none !important;
+    border-bottom-left-radius: 10px !important;
+    border-bottom-right-radius: 10px !important;
+}}
+
+/* Streamlit Tabs Navigation */
 .stTabs [data-baseweb="tab-list"] {{
-    background-color: var(--surface);
-    border-radius: 8px;
-    padding: 4px;
-    border: 1px solid var(--border-subtle);
+    background-color: var(--surface) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-card) !important;
+    padding: 6px 12px !important;
+    gap: 8px !important;
+    margin-bottom: 24px !important;
 }}
 
 .stTabs [data-baseweb="tab"] {{
-    color: var(--text-secondary) !important;
-    font-weight: 500 !important;
-    font-size: 0.92rem !important;
+    color: var(--text-muted) !important;
+    font-weight: 600 !important;
+    font-size: 0.88rem !important;
+    padding: 10px 16px !important;
+    border: none !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    transition: all 0.18s ease !important;
+}}
+
+.stTabs [data-baseweb="tab"]:hover {{
+    color: var(--text-primary) !important;
+    background: var(--surface-subtle) !important;
 }}
 
 .stTabs [aria-selected="true"] {{
-    color: var(--accent-primary) !important;
+    color: #FFFFFF !important;
     font-weight: 700 !important;
-    background-color: var(--bg-main) !important;
-    border-radius: 6px !important;
+    background: var(--accent-primary) !important;
+    border-bottom: none !important;
+    box-shadow: 0 4px 12px rgba(184, 92, 56, 0.35) !important;
 }}
 
-/* Disclaimers & Notes */
+/* File Uploader */
+[data-testid="stFileUploadDropzone"] {{
+    background-color: var(--surface) !important;
+    border: 2px dashed var(--border-subtle) !important;
+    border-radius: var(--radius-card) !important;
+    padding: 24px !important;
+}}
+
+[data-testid="stFileUploadDropzone"]:hover {{
+    border-color: var(--accent-primary) !important;
+    background-color: var(--surface-subtle) !important;
+}}
+
+/* Sliders */
+.stSlider [data-baseweb="slider"] {{
+    color: var(--accent-primary) !important;
+}}
+
+/* Hairline Divider */
+.chroma-hairline {{
+    height: 1px;
+    background-color: var(--border-subtle);
+    margin: 24px 0;
+    width: 100%;
+}}
+
+/* AI Privacy Shield Card */
+.privacy-shield-hero {{
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-subtle) 100%);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-card);
+    padding: 26px;
+    margin-bottom: 22px;
+}}
+
+.privacy-badge-icon {{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    font-size: 1.4rem;
+    margin-bottom: 12px;
+}}
+
+/* Clean Disclaimer Box */
 .disclaimer-box {{
-    background-color: {'#1D201C' if is_dark else '#F7F3EC'};
-    border-left: 3px solid var(--accent-secondary);
-    padding: 10px 14px;
-    font-size: 0.83rem;
+    background-color: var(--surface-subtle);
+    border-left: 3px solid var(--accent-primary);
+    padding: 12px 16px;
+    font-size: 0.82rem;
     color: var(--text-secondary);
-    margin-top: 10px;
-    margin-bottom: 16px;
-    border-radius: 0 6px 6px 0;
-}}
-
-/* Subtle pulse animation for analysis */
-@keyframes subtle-pulse {{
-    0% {{ opacity: 0.95; }}
-    50% {{ opacity: 0.65; }}
-    100% {{ opacity: 0.95; }}
-}}
-.loading-skeleton {{
-    background: linear-gradient(90deg, var(--surface) 25%, var(--border-subtle) 50%, var(--surface) 75%);
-    background-size: 200% 100%;
-    animation: subtle-pulse 1.8s infinite;
-    border-radius: 8px;
-    height: 120px;
+    border-radius: 4px;
+    margin-top: 14px;
     margin-bottom: 16px;
 }}
 </style>
 """
 
-
-MAIN_CSS = get_theme_css("light")
+MAIN_CSS = get_theme_css("dark")

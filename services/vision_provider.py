@@ -1,12 +1,9 @@
 """Vision LLM provider with structured schema validation and resilient local fallback."""
-import os
 import json
 import io
 import base64
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from PIL import Image
-import numpy as np
-import cv2
 
 from config.settings import (
     VISION_API_KEY,
@@ -162,9 +159,9 @@ def generate_local_rule_based_analysis(
     optical luminance, and lighting analysis when external vision API is not configured or fails.
     Explicitly marks reduced mode and differentiates visual observations from uncertain inferences.
     """
-    # Inferred room type
+    # Inferred room type: never silently default to Living Room
     if selected_room_type == "Automatic Detection":
-        inferred_room = "Living Room (Inferred default interior)"
+        inferred_room = "Not detected (Please specify room type)"
     else:
         inferred_room = selected_room_type
 

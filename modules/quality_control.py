@@ -8,11 +8,11 @@ Validates:
 5. Edge artifact and seam gradient consistency.
 """
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Tuple, Optional
+from typing import Dict, Any, List, Tuple
 import numpy as np
 from PIL import Image
 
-from modules.image_processing import pil_to_numpy_rgb, calculate_perceptual_luminance
+from modules.image_processing import pil_to_numpy_rgb
 
 
 @dataclass

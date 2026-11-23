@@ -2,7 +2,6 @@
 import pytest
 import os
 import tempfile
-import json
 
 from models.schemas import PaletteConcept, ColorSwatch
 from modules.storage import (

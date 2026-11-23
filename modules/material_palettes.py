@@ -1,5 +1,5 @@
 """Material-Aware Palettes: Material characteristics, undertone harmony, and recommendation ranking."""
-from typing import Dict, Any, List, Tuple
+from typing import List, Tuple
 from models.schemas import PaletteConcept
 
 MATERIAL_PROFILES = {

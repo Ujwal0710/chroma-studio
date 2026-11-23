@@ -10,13 +10,13 @@ Combines:
 7. Interactive manual mask adjustments (seed points, brush additions, eraser exclusions, rectangular bounds).
 8. Rigorous boundary-confidence scoring with low-confidence diagnostic warnings.
 """
-from typing import Tuple, Optional, Dict, Any, List, Union
+from typing import Tuple, Optional, Dict, Any, List
 import numpy as np
 from PIL import Image
 import cv2
 from scipy import ndimage
 
-from modules.image_processing import pil_to_numpy_rgb, rgb_to_cielab
+from modules.image_processing import pil_to_numpy_rgb
 
 
 def compute_boundary_edges(gray_arr: np.ndarray, edge_protection: float = 0.65) -> np.ndarray:

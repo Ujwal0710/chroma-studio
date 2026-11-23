@@ -1,14 +1,8 @@
 """Image processing, colour space conversions, and optical characteristics."""
 import math
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, Optional
 import numpy as np
 from PIL import Image
-
-try:
-    import cv2
-    HAS_OPENCV = True
-except ImportError:
-    HAS_OPENCV = False
 
 
 def pil_to_numpy_rgb(img: Image.Image) -> np.ndarray:
@@ -148,9 +142,39 @@ def rgb_to_cielab(r: Any, g: Optional[int] = None, b: Optional[int] = None) -> T
     return round(l_star, 2), round(a_star, 2), round(b_star, 2)
 
 
+def cielab_to_rgb(l_star: float, a_star: float, b_star: float) -> Tuple[int, int, int]:
+    """Convert CIE L*a*b* under D65 illuminant back to sRGB [0..255]."""
+    fy = (float(l_star) + 16.0) / 116.0
+    fx = float(a_star) / 500.0 + fy
+    fz = fy - float(b_star) / 200.0
+
+    delta = 6.0 / 29.0
+    xn, yn, zn = 0.95047, 1.00000, 1.08883
+
+    def finv(t: float) -> float:
+        return t ** 3 if t > delta else 3.0 * (delta ** 2) * (t - 4.0 / 29.0)
+
+    x = xn * finv(fx)
+    y = yn * finv(fy)
+    z = zn * finv(fz)
+
+    # XYZ to linear sRGB
+    r_lin = x * 3.2404542 - y * 1.5371385 - z * 0.4985314
+    g_lin = -x * 0.9692660 + y * 1.8760108 + z * 0.0415560
+    b_lin = x * 0.0556434 - y * 0.2040259 + z * 1.0572252
+
+    def to_srgb(c: float) -> float:
+        c = max(0.0, min(1.0, c))
+        return 12.92 * c if c <= 0.0031308 else 1.055 * (c ** (1.0 / 2.4)) - 0.055
+
+    r = int(round(to_srgb(r_lin) * 255.0))
+    g = int(round(to_srgb(g_lin) * 255.0))
+    b = int(round(to_srgb(b_lin) * 255.0))
+    return max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b))
+
+
 def calculate_cielab_delta_e(lab1: Tuple[float, float, float], lab2: Tuple[float, float, float]) -> float:
     """Calculate Euclidean Delta-E distance between two CIE L*a*b* coordinates."""
-    import math
     return math.sqrt((lab1[0] - lab2[0]) ** 2 + (lab1[1] - lab2[1]) ** 2 + (lab1[2] - lab2[2]) ** 2)
 
 

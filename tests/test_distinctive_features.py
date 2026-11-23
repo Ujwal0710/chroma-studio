@@ -12,7 +12,6 @@ import numpy as np
 from models.schemas import PaletteConcept, ColorSwatch, PaintEstimateInput
 from modules.chroma_memory import (
     record_favorite_palette,
-    record_rejected_palette,
     get_chroma_memory,
     clear_chroma_memory,
     evaluate_chroma_memory_influence
@@ -110,7 +109,7 @@ def test_design_timeline_versioning(temp_db, sample_palette):
     
     # Save second iteration
     sample_palette.name = "Iteration Two with Deeper Umber"
-    v2_id = save_timeline_version(user_id, project_id, sample_palette, "Deeper Tone", db_path=temp_db)
+    save_timeline_version(user_id, project_id, sample_palette, "Deeper Tone", db_path=temp_db)
     
     timeline = list_project_timeline(user_id, project_id, db_path=temp_db)
     assert len(timeline) == 2
@@ -161,7 +160,6 @@ def test_material_compatibility_evaluation(sample_palette):
 
 
 def test_colour_swap_playground(sample_palette):
-    orig_accent = sample_palette.accent.hex
     new_accent_hex = "#2C3E3A"  # Deep Forest Pine
     
     swapped = swap_palette_color(sample_palette, "accent", new_accent_hex)

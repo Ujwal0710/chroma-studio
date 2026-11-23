@@ -3,7 +3,7 @@ from PIL import Image
 from unittest.mock import patch
 
 from models.schemas import ExtractedColorAnalysis, ColorSwatch, PaletteConcept
-from services.vision_provider import perform_room_analysis, generate_local_rule_based_analysis
+from services.vision_provider import perform_room_analysis
 from services.image_editing_provider import generate_ai_room_preview
 
 
@@ -91,12 +91,6 @@ def test_image_edit_provider_handles_missing_keys_gracefully():
 
 def test_application_can_start_without_paid_ai_services():
     """Requirement 15: The application can start without paid AI services."""
-    # Test importing app modules without errors
-    import config.settings as settings
-    import modules.image_validation as img_val
-    import modules.colour_extraction as col_ext
-    import modules.palette_engine as pal_eng
-    import modules.room_visualization as room_vis
     import modules.storage as storage
 
     # Initialize DB in-memory
@@ -125,7 +119,7 @@ def test_env_path_anchored_to_project_root():
 
 def test_image_edit_status_detection_and_key_masking():
     """Verify status diagnostics detects presence of key without exposing the raw secret."""
-    from services.image_editing_provider import get_image_editing_status, mask_api_key
+    from services.image_editing_provider import get_image_editing_status
     
     # 1. Unconfigured scenario
     status_unconf = get_image_editing_status(override_api_key="")

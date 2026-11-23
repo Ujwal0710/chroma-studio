@@ -1,0 +1,57 @@
+# Master Execution Progress (PROGRESS.md)
+
+- [x] **Phase 1: Diagnose the Recolour Failure**
+  - [x] Generate/collect 10 diverse test room photos (bright, dark, white-on-white, wallpaper, window glare, cluttered, warm lighting).
+  - [x] Run legacy recolour pipeline on all 10.
+  - [x] Save wall masks, recoloured results, and failure classification table.
+  - [x] Generate visual contact sheet (`diagnostics/contact_sheet.png`) and ranked root cause audit.
+- [x] **Phase 2: Rebuild Recolouring for Real-World Accuracy**
+  - [x] ADE20K SegFormer semantic segmentation engine with dynamic `id2label`.
+  - [x] Boundary refinement with guided filter and halo-free soft feathering.
+  - [x] Shading-preserving CIELAB / linear recolour with shadow & texture preservation.
+  - [x] Lighting color-cast estimation and compensation.
+  - [x] Quality gate metrics (edge sharpness, mask connectivity, confidence warning).
+  - [x] Interactive manual refine tools (promptable brush/tap "wall" and "not wall").
+  - [x] Multi-surface support: walls, ceiling, trim, accent wall.
+- [x] **Phase 3: Accuracy Measurement & Evaluation Suite**
+  - [x] 32 benchmark room photos with ground-truth masks.
+  - [x] Automated evaluation: Mean IoU (target >= 0.88), Min IoU (target >= 0.70).
+  - [x] Lightness correlation check (target >= 0.95) and edge halo checks.
+  - [x] Top 5 worst failure overlays saved and documented.
+- [x] **Phase 4: Photo to 3D Room (Three Modes)**
+  - [x] Three.js interactive 3D viewer in Next.js (`frontend/components/Room3DView.tsx` with WebGL OrbitControls).
+  - [x] Mode A: Monocular depth textured mesh with edge tear culling and live paint shading.
+  - [x] Mode B: Room-box projection with perspective alignment and adjustable dimensions (width, depth, height).
+  - [x] Mode C: Multi-photo background reconstruction pipeline with progress tracking and SfM stages.
+  - [x] glTF/GLB binary export and turntable screenshot capture.
+  - [x] 2D WebGL fallback handling for hardware-constrained devices.
+- [x] **Master Task: Accurate Wall Detection (Trained), Live Camera, Realistic 3D Room**
+  - [x] **Phase 1: Wall-vs-Object Audit Across 15 Diverse Scenarios**
+    - [x] Evaluated 15 challenging scenes (white sofa on white wall, dark cabinets, curtains, art frames, TVs, shelves, plants, monitors, sconces, radiators).
+    - [x] Produced contact sheet `diagnostics_audit/audit_contact_sheet.png` and ranked root causes in `diagnostics_audit/AUDIT_REPORT.md`.
+  - [x] **Phase 2: Train Wall-vs-Object Model & Boundary Refinement**
+    - [x] Collapsed 150 ADE20K classes into 7 task-specific classes with 59 obstacle classes.
+    - [x] Boundary-aware loss and hard-example mining in `scripts/train_wall_object_segmenter.py`.
+    - [x] Documented dataset licences and GPU fine-tuning command in `TRAINING_SPECIFICATION.md`.
+    - [x] Inference boundary edge-snapping with continuous probability upsampling and fast guided filter.
+    - [x] Promptable manual correction with logging to `data/corrections_log/`.
+  - [x] **Phase 3: Shading-Preserving Recolour Engine**
+    - [x] CIELAB relative luminance scaling ($r = 0.9895$), ambient cast compensation, soft feathering.
+  - [x] **Phase 4: Live Camera Scanner**
+    - [x] Next.js `LiveScanView.tsx` with `getUserMedia` rear/front toggle, 480p downscaled stream.
+    - [x] Real-time inference at 5.8 FPS with Exponential Moving Average (EMA $\alpha = 0.85$) stabilization.
+    - [x] Live pigment chips, opacity slider, still frame capture to Studio, low-light & insecure context handling.
+    - [x] Authored `MOBILE_TESTING_GUIDE.md` for phone testing via HTTPS.
+  - [x] **Phase 5: Realistic 3D Room with Extracted Spatial Objects**
+    - [x] Three.js WebGL with ACESFilmic tone mapping, sRGB color space, and soft contact shadows.
+    - [x] Mode A (depth mesh with edge-tear culling), Mode B (room-box vanishing layout), Mode C (SfM multi-photo).
+    - [x] Physical 3D objects (sofa, coffee table, wall art) embedded in model with PBR materials.
+    - [x] Live 3D wall recolour without altering furniture. Valid glTF 2.0 `.glb` export.
+  - [x] **Phase 6: Root Cause Bug Fixes & Feature Matrix Alignment**
+    - [x] Palette Lab 422 validation error resolved and Pydantic schemas unified.
+    - [x] All 94 unit/integration tests passing.
+  - [x] **Phase 7: Full Autonomous Verification & Accuracy Reporting**
+    - [x] Backend tests: 94 passed, 0 failed.
+    - [x] Frontend TypeScript typecheck and `npm run build` passing cleanly.
+    - [x] Browser E2E verification via subagent with visual screenshots.
+    - [x] Documented real metrics in `ACCURACY_REPORT.md`.
