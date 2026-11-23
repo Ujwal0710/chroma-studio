@@ -1,4 +1,5 @@
 """FastAPI application entrypoint for CHROMA STUDIO AI Backend."""
+import os
 import base64
 import logging
 import traceback
@@ -39,12 +40,13 @@ app = FastAPI(
     version="3.0.0"
 )
 
-# CORS Configuration for Next.js frontend
+# CORS Configuration for frontend (local dev + Render production)
 # Explicit origins required because allow_credentials=True forbids wildcard "*".
-ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+raw_origins = os.environ.get(
+    "CORS_ORIGINS",
+    "http://localhost:3000,http://127.0.0.1:3000"
+)
+ALLOWED_ORIGINS = [o.strip() for o in raw_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
@@ -62,7 +64,7 @@ app.add_middleware(
 def _cors_headers(request: Request) -> dict[str, str]:
     """Return CORS headers matching the incoming origin, or empty dict."""
     origin = request.headers.get("origin", "")
-    if origin in ALLOWED_ORIGINS:
+    if origin and (origin in ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS):
         return {
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",

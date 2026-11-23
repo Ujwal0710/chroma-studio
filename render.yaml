@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: chroma-studio-api
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: CORS_ORIGINS
+        value: "http://localhost:3000,http://127.0.0.1:3000"
+      - key: APP_NAME
+        value: "CHROMA STUDIO AI"
+      - key: APP_TAGLINE
+        value: "Intelligent Architectural Colour & Interior Design Workspace"
+      - key: AUTH_SECRET_KEY
+        generateValue: true
+      - key: VISION_API_KEY
+        sync: false

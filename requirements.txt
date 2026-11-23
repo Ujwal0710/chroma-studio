@@ -1,14 +1,27 @@
-streamlit>=1.35.0
+# Web Framework & API Server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+PyJWT>=2.8.0
+pydantic>=2.7.0
+python-dotenv>=1.0.0
+
+# Computer Vision & Colour Science
+opencv-python-headless>=4.9.0
 pillow>=10.3.0
 numpy>=1.26.0
 scikit-learn>=1.4.0
 scipy>=1.13.0
-pydantic>=2.7.0
-python-dotenv>=1.0.0
-pytest>=8.0.0
-requests>=2.31.0
-google-genai>=0.1.0
-google-generativeai>=0.5.0
-opencv-python-headless>=4.9.0
+
+# Optional Streamlit & Real-time camera
+streamlit>=1.35.0
 streamlit-webrtc>=0.79.0
 av>=19.0.0
+
+# Testing & Utilities
+requests>=2.31.0
+pytest>=8.0.0
+
+# AI Vision Providers
+google-genai>=0.1.0
+google-generativeai>=0.5.0
