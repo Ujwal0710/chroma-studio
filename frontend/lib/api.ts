@@ -1,11 +1,24 @@
 import { PaletteConcept, RoomAnalysisResponse, ChromaDNA } from "./types";
 
 /**
- * Base URL for the backend API.
- * Set NEXT_PUBLIC_API_URL in your .env.local or environment.
- * Default: http://localhost:8000
+ * Automatically determine backend base URL:
+ * 1. Explicit NEXT_PUBLIC_API_URL environment variable if set.
+ * 2. If running on production (Vercel / non-localhost domain), automatically connect to Render backend.
+ * 3. Default to local http://localhost:8000 when developing locally.
  */
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export function getApiBase(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envUrl && !envUrl.includes("localhost") && !envUrl.includes("127.0.0.1")) {
+    return envUrl.replace(/\/+$/, "");
+  }
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host !== "localhost" && host !== "127.0.0.1") {
+      return "https://chroma-studio-api.onrender.com";
+    }
+  }
+  return (envUrl || "http://localhost:8000").replace(/\/+$/, "");
+}
 
 /** Default request timeout in milliseconds (short timeout). */
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -22,7 +35,7 @@ async function request<T>(
   options: RequestInit = {},
   { retries = 0 }: { retries?: number } = {}
 ): Promise<T> {
-  const url = `${API_BASE}${endpoint}`;
+  const url = `${getApiBase()}${endpoint}`;
   const defaultHeaders: HeadersInit = {
     Accept: "application/json",
   };
@@ -403,7 +416,7 @@ export const api = {
 
   get3DJobStatus: (jobId: string) => request<any>(`/3d/job/${jobId}`),
 
-  getGlbExportUrl: () => `${API_BASE}/3d/export/glb`,
+  getGlbExportUrl: () => `${getApiBase()}/3d/export/glb`,
 
   // GDPR Account Data
   getAccountData: () => request<any>("/account/data"),

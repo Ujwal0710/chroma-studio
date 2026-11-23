@@ -51,6 +51,7 @@ ALLOWED_ORIGINS = [o.strip() for o in raw_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Accept", "Authorization", "X-Requested-With"],
@@ -61,10 +62,20 @@ app.add_middleware(
 # Global exception handlers – every response gets JSON + CORS headers intact
 # ---------------------------------------------------------------------------
 
+def is_origin_allowed(origin: str) -> bool:
+    if not origin:
+        return False
+    if origin in ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS:
+        return True
+    if origin.startswith("https://") and origin.endswith(".vercel.app"):
+        return True
+    return False
+
+
 def _cors_headers(request: Request) -> dict[str, str]:
     """Return CORS headers matching the incoming origin, or empty dict."""
     origin = request.headers.get("origin", "")
-    if origin and (origin in ALLOWED_ORIGINS or "*" in ALLOWED_ORIGINS):
+    if is_origin_allowed(origin):
         return {
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",

@@ -34,9 +34,11 @@ export function BackendStatus() {
   if (!offline) return null;
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 px-4 py-2 rounded-full bg-red-900/90 border border-red-700 text-xs text-red-200 shadow-lg backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2">
-      <WifiOff className="w-3.5 h-3.5" />
-      Backend offline — start the server with <code className="ml-1 font-mono text-red-100">uvicorn backend.main:app</code>
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2 px-4 py-2 rounded-full bg-[#1B1E19]/95 border border-amber-600/60 text-xs text-amber-200 shadow-xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2">
+      <WifiOff className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+      <span>
+        Backend connecting... <span className="text-[11px] text-[#A8A69E]">(Render free-tier may take ~45s on first wake-up)</span>
+      </span>
     </div>
   );
 }
